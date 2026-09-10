@@ -1,311 +1,281 @@
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  Pressable,
-} from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+import { Screen } from '../components/Screen';
+import { VerseActionSheet } from '../components/VerseActionSheet';
+import { NoteEditorModal } from '../components/NoteEditorModal';
+import { StudyToolsModal } from '../components/StudyToolsModal';
+import { useStudy } from '../context/StudyContext';
+import { useAppTheme } from '../theme/ThemeContext';
+import { getBook, getChapter, formatReference } from '../data/bible';
+import { getDailyVerse } from '../services/dailyVerseService';
+import { shareVerse } from '../services/shareService';
+import { listPlans, progressPercent } from '../services/readingPlanService';
+import type { HomeStackParamList, RootTabParamList } from '../types/navigation';
+import type { VerseLocation } from '../types/bible';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { getBook, getChapter } from '../data/bible';
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<HomeStackParamList>,
+  BottomTabNavigationProp<RootTabParamList>
+>;
 
 export default function HomeScreen() {
-  const book = getBook(0);
-  const chapter = getChapter(0, 0);
+  const colors = useAppTheme();
+  const navigation = useNavigation<Nav>();
+  const { store, toggleBookmark, isBookmarked } = useStudy();
+  const daily = useMemo(() => getDailyVerse(), []);
+  const [activeVerse, setActiveVerse] = useState<VerseLocation | null>(null);
+  const [noteVerse, setNoteVerse] = useState<VerseLocation | null>(null);
+  const [studyVerse, setStudyVerse] = useState<VerseLocation | null>(null);
+
+  const position = store.readingPosition;
+  const continueBook = position ? getBook(position.bookIndex) : getBook(0);
+  const continueChapter = position
+    ? getChapter(position.bookIndex, position.chapterIndex)
+    : getChapter(0, 0);
+  const hasRead = Boolean(position);
+
+  const openReader = (bookIndex: number, chapterIndex: number, verseIndex = 0) => {
+    navigation.navigate('BibleTab', {
+      screen: 'BibleReader',
+      params: { bookIndex, chapterIndex, verseIndex },
+    });
+  };
+
+  const chapterProgress = (() => {
+    if (!position) {
+      return 0;
+    }
+    const book = getBook(position.bookIndex);
+    if (!book) {
+      return 0;
+    }
+    const totalBooks = 66;
+    return Math.min(100, Math.round(((position.bookIndex + (position.chapterIndex + 1) / book.chapters.length) / totalBooks) * 100));
+  })();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
-
-        {/* Header */}
-
-        <View style={styles.header}>
-          <Text style={styles.greeting}>
-            መጽሐፍ ቅዱስ
-          </Text>
-
-          <Text style={styles.subtitle}>
-            ቃሉን ያንብቡ፣ ያስተውሉ፣ ይኑሩበት
-          </Text>
-        </View>
-
-        {/* Continue Reading */}
-
-        <Text style={styles.sectionTitle}>
-          ማንበብ ይቀጥሉ
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={[styles.appTitle, { color: colors.text }]}>መጽሐፍ ቅዱስ</Text>
+        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+          ቃሉን ያንብቡ፣ ያስተውሉ፣ ይኑሩበት
         </Text>
 
-        <Pressable style={styles.continueCard}>
-          <View>
-            <Text style={styles.continueLabel}>
-              መጽሐፍ ቅዱስ
+        <Text style={[styles.section, { color: colors.text }]}>ማንበብ ይቀጥሉ</Text>
+        <Pressable
+          style={[styles.continue, { backgroundColor: colors.accent }]}
+          onPress={() =>
+            openReader(position?.bookIndex ?? 0, position?.chapterIndex ?? 0, position?.verseIndex ?? 0)
+          }
+          accessibilityRole="button"
+          accessibilityLabel="ማንበብ ይቀጥሉ"
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.continueLabel, { color: colors.accentText }]}>
+              {hasRead ? 'የመጨረሻ ንባብ' : 'መጀመሪያ ያንብቡ'}
             </Text>
-
-            <Text style={styles.continueBook}>
-              {book.title}
+            <Text style={[styles.continueBook, { color: colors.accentText }]}>
+              {continueBook?.title ?? 'ኦሪት ዘፍጥረት'}
             </Text>
-
-            <Text style={styles.continueChapter}>
-              ምዕራፍ {chapter.chapter}
+            <Text style={{ color: colors.accentText, marginTop: 4 }}>
+              ምዕራፍ {continueChapter?.chapter ?? '1'}
+            </Text>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${chapterProgress}%` }]} />
+            </View>
+            <Text style={{ color: colors.accentText, marginTop: 6, fontSize: 12 }}>
+              {hasRead ? `ሂደት ${chapterProgress}%` : 'ከኦሪት ዘፍጥረት ምዕራፍ 1 ይጀምሩ'}
             </Text>
           </View>
-
-          <View style={styles.readButton}>
-            <Text style={styles.readButtonText}>
-              አንብብ
-            </Text>
+          <View style={styles.readPill}>
+            <Text style={{ color: colors.accent, fontWeight: '800' }}>አንብብ</Text>
           </View>
         </Pressable>
 
-        {/* Daily Verse */}
-
-        <Text style={styles.sectionTitle}>
-          የዕለቱ ጥቅስ
-        </Text>
-
-        <View style={styles.verseCard}>
-          <Text style={styles.verseText}>
-            {chapter.verses[0]}
-          </Text>
-
-          <Text style={styles.reference}>
-            — {book.title} 1:1
-          </Text>
-
-          <View style={styles.verseActions}>
-            <Pressable style={styles.actionButton}>
-              <Text style={styles.actionText}>
-                አጋራ
-              </Text>
-            </Pressable>
-
-            <Pressable style={styles.actionButton}>
-              <Text style={styles.actionText}>
-                አስቀምጥ
-              </Text>
-            </Pressable>
+        <Text style={[styles.section, { color: colors.text }]}>የዕለቱ ጥቅስ</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.verse, { color: colors.text }]}>{daily.text}</Text>
+          <Text style={[styles.ref, { color: colors.textMuted }]}>— {formatReference(daily)}</Text>
+          <View style={styles.row}>
+            <Chip
+              label="አንብብ"
+              onPress={() => openReader(daily.bookIndex, daily.chapterIndex, daily.verseIndex)}
+            />
+            <Chip label="አጋራ" onPress={() => shareVerse(daily, true).catch(() => Alert.alert('ማጋራት አልተሳካም'))} />
+            <Chip
+              label={isBookmarked(daily) ? 'ተቀምጧል' : 'አስቀምጥ'}
+              onPress={() => toggleBookmark(daily)}
+            />
+            <Chip label="ተጨማሪ" onPress={() => setActiveVerse(daily)} />
           </View>
         </View>
 
-        {/* Quick Access */}
+        <Text style={[styles.section, { color: colors.text }]}>በቅርብ የተነበቡ</Text>
+        {store.readingHistory.length === 0 ? (
+          <Text style={{ color: colors.textMuted, marginBottom: 16 }}>
+            ምዕራፍ ሲያነቡ እዚህ ይታያሉ።
+          </Text>
+        ) : (
+          store.readingHistory.slice(0, 6).map((item) => {
+            const book = getBook(item.bookIndex);
+            const chapter = getChapter(item.bookIndex, item.chapterIndex);
+            return (
+              <Pressable
+                key={`${item.bookIndex}-${item.chapterIndex}-${item.openedAt}`}
+                onPress={() => openReader(item.bookIndex, item.chapterIndex)}
+                style={[styles.history, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <Text style={{ color: colors.text, fontWeight: '700' }}>{book?.title}</Text>
+                <Text style={{ color: colors.textMuted }}>ምዕራፍ {chapter?.chapter}</Text>
+              </Pressable>
+            );
+          })
+        )}
 
-        <Text style={styles.sectionTitle}>
-          ፈጣን መዳረሻ
-        </Text>
-
-        <View style={styles.quickGrid}>
-
-          <Pressable style={styles.quickCard}>
-            <Text style={styles.quickIcon}>
-              📖
-            </Text>
-
-            <Text style={styles.quickTitle}>
-              መጽሐፍ ቅዱስ
-            </Text>
-
-            <Text style={styles.quickSubtitle}>
-              ሁሉንም መጻሕፍት
-            </Text>
-          </Pressable>
-
-          <Pressable style={styles.quickCard}>
-            <Text style={styles.quickIcon}>
-              🔍
-            </Text>
-
-            <Text style={styles.quickTitle}>
-              ፍለጋ
-            </Text>
-
-            <Text style={styles.quickSubtitle}>
-              ቃል ወይም ጥቅስ
-            </Text>
-          </Pressable>
-
-          <Pressable style={styles.quickCard}>
-            <Text style={styles.quickIcon}>
-              🔖
-            </Text>
-
-            <Text style={styles.quickTitle}>
-              የተመረጡ
-            </Text>
-
-            <Text style={styles.quickSubtitle}>
-              ያስቀመጡት
-            </Text>
-          </Pressable>
-
-          <Pressable style={styles.quickCard}>
-            <Text style={styles.quickIcon}>
-              📅
-            </Text>
-
-            <Text style={styles.quickTitle}>
-              የንባብ ዕቅድ
-            </Text>
-
-            <Text style={styles.quickSubtitle}>
-              የንባብ እቅዶች
-            </Text>
-          </Pressable>
-
+        <Text style={[styles.section, { color: colors.text }]}>ፈጣን መዳረሻ</Text>
+        <View style={styles.grid}>
+          <Quick
+            icon="book-outline"
+            title="መጽሐፍ ቅዱስ"
+            subtitle="ሁሉንም መጻሕፍት"
+            onPress={() => navigation.navigate('BibleTab', { screen: 'BibleReader' })}
+          />
+          <Quick
+            icon="search-outline"
+            title="ፍለጋ"
+            subtitle="ቃል ወይም ጥቅስ"
+            onPress={() => navigation.navigate('SearchTab', { screen: 'SearchMain' })}
+          />
+          <Quick
+            icon="bookmark-outline"
+            title="የተቀመጡ"
+            subtitle={`${store.bookmarks.length} ምልክቶች`}
+            onPress={() => navigation.navigate('SavedTab', { screen: 'SavedMain' })}
+          />
+          <Quick
+            icon="calendar-outline"
+            title="የንባብ ዕቅድ"
+            subtitle={`${listPlans().length} ዕቅዶች`}
+            onPress={() => navigation.navigate('Plans')}
+          />
         </View>
 
+        <Text style={[styles.section, { color: colors.text }]}>የንባብ ዕቅዶች</Text>
+        {listPlans().slice(0, 3).map((plan) => {
+          const percent = progressPercent(plan, store.planProgress[plan.id]);
+          return (
+            <Pressable
+              key={plan.id}
+              onPress={() => navigation.navigate('PlanDetail', { planId: plan.id })}
+              style={[styles.plan, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
+              <Text style={{ color: colors.text, fontWeight: '800' }}>{plan.title}</Text>
+              <Text style={{ color: colors.textMuted, marginTop: 4 }}>{plan.days.length} ቀናት · {percent}%</Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
-    </SafeAreaView>
+
+      <VerseActionSheet
+        verse={activeVerse}
+        visible={Boolean(activeVerse)}
+        onClose={() => setActiveVerse(null)}
+        onAddNote={setNoteVerse}
+        onCreateImage={(verse) =>
+          navigation.navigate('BibleTab', {
+            screen: 'VerseImage',
+            params: verse,
+          })
+        }
+        onOpenStudy={setStudyVerse}
+      />
+      <NoteEditorModal verse={noteVerse} visible={Boolean(noteVerse)} onClose={() => setNoteVerse(null)} />
+      <StudyToolsModal
+        verse={studyVerse}
+        visible={Boolean(studyVerse)}
+        onClose={() => setStudyVerse(null)}
+        onOpenRef={(b, c, v) => openReader(b, c, v)}
+      />
+    </Screen>
+  );
+}
+
+function Chip({ label, onPress }: { label: string; onPress: () => void }) {
+  const colors = useAppTheme();
+  return (
+    <Pressable onPress={onPress} style={[styles.chip, { backgroundColor: colors.accentSoft }]}>
+      <Text style={{ color: colors.accent, fontWeight: '700' }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Quick({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  const colors = useAppTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.quick, { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
+      <Ionicons name={icon} size={22} color={colors.accent} />
+      <Text style={{ color: colors.text, fontWeight: '800', marginTop: 8 }}>{title}</Text>
+      <Text style={{ color: colors.textMuted, marginTop: 4 }}>{subtitle}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9f7',
-  },
-
-  content: {
+  content: { padding: 20, paddingBottom: 40 },
+  appTitle: { fontSize: 32, fontWeight: '800' },
+  subtitle: { fontSize: 16, marginTop: 6, marginBottom: 20 },
+  section: { fontSize: 20, fontWeight: '800', marginBottom: 12, marginTop: 8 },
+  continue: {
+    borderRadius: 20,
     padding: 20,
-    paddingBottom: 30,
-  },
-
-  header: {
-    marginBottom: 28,
-  },
-
-  greeting: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#172117',
-  },
-
-  subtitle: {
-    fontSize: 16,
-    color: '#707870',
-    marginTop: 6,
-  },
-
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#172117',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-
-  continueCard: {
-    backgroundColor: '#2e7d32',
-    borderRadius: 18,
-    padding: 20,
-    marginBottom: 26,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 20,
   },
-
-  continueLabel: {
-    color: '#d8efd9',
-    fontSize: 14,
-    marginBottom: 5,
-  },
-
-  continueBook: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 'bold',
-  },
-
-  continueChapter: {
-    color: '#d8efd9',
-    fontSize: 16,
-    marginTop: 4,
-  },
-
-  readButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-
-  readButtonText: {
-    color: '#2e7d32',
-    fontWeight: 'bold',
-  },
-
-  verseCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 20,
-    marginBottom: 26,
-    borderWidth: 1,
-    borderColor: '#e8ebe7',
-  },
-
-  verseText: {
-    fontSize: 19,
-    lineHeight: 34,
-    color: '#202520',
-  },
-
-  reference: {
+  continueLabel: { fontSize: 14, marginBottom: 4 },
+  continueBook: { fontSize: 22, fontWeight: '800' },
+  progressTrack: {
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.28)',
+    borderRadius: 99,
     marginTop: 12,
-    fontSize: 14,
-    color: '#687068',
-    fontWeight: '600',
+    overflow: 'hidden',
   },
-
-  verseActions: {
+  progressFill: { height: 6, backgroundColor: '#fff' },
+  readPill: { backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 },
+  card: { borderRadius: 18, padding: 18, borderWidth: 1, marginBottom: 18 },
+  verse: { fontSize: 19, lineHeight: 34 },
+  ref: { marginTop: 10, fontWeight: '700' },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  chip: { paddingHorizontal: 12, minHeight: 40, borderRadius: 10, justifyContent: 'center' },
+  history: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 8,
     flexDirection: 'row',
-    marginTop: 18,
-    gap: 10,
-  },
-
-  actionButton: {
-    backgroundColor: '#edf5ed',
-    paddingHorizontal: 15,
-    paddingVertical: 9,
-    borderRadius: 9,
-  },
-
-  actionText: {
-    color: '#2e7d32',
-    fontWeight: '600',
-  },
-
-  quickGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-
-  quickCard: {
-    width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 17,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e8ebe7',
-  },
-
-  quickIcon: {
-    fontSize: 25,
-    marginBottom: 10,
-  },
-
-  quickTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#202520',
-  },
-
-  quickSubtitle: {
-    fontSize: 13,
-    color: '#777',
-    marginTop: 4,
-  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  quick: { width: '48%', borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 12 },
+  plan: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 10 },
 });

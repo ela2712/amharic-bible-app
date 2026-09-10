@@ -1,62 +1,33 @@
-import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StudyProvider } from './src/context/StudyContext';
+import { ThemeProvider, useAppTheme } from './src/theme/ThemeContext';
+import { RootNavigator } from './src/navigation/RootNavigator';
+import { useStudy } from './src/context/StudyContext';
 
-import HomeScreen from './src/screens/HomeScreen';
-import BibleScreen from './src/screens/BibleScreen';
-import SearchScreen from './src/screens/SearchScreen';
-import BookmarksScreen from './src/screens/BookmarksScreen';
-import SettingsScreen from './src/screens/SettingsScreen';
-
-const Tab = createBottomTabNavigator();
+function ThemedApp() {
+  const colors = useAppTheme();
+  const { settings } = useStudy();
+  const light = settings.theme === 'light' || settings.theme === 'sepia';
+  return (
+    <>
+      <StatusBar style={light ? 'dark' : 'light'} backgroundColor={colors.background} />
+      <RootNavigator />
+    </>
+  );
+}
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <Tab.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            title: 'ቤት',
-          }}
-        />
-
-        <Tab.Screen
-          name="Bible"
-          component={BibleScreen}
-          options={{
-            title: 'መጽሐፍ ቅዱስ',
-          }}
-        />
-
-        <Tab.Screen
-          name="Search"
-          component={SearchScreen}
-          options={{
-            title: 'ፍለጋ',
-          }}
-        />
-
-        <Tab.Screen
-          name="Bookmarks"
-          component={BookmarksScreen}
-          options={{
-            title: 'የተመረጡ',
-          }}
-        />
-
-        <Tab.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{
-            title: 'ቅንብሮች',
-          }}
-        />
-      </Tab.Navigator>
-    </NavigationContainer>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StudyProvider>
+          <ThemeProvider>
+            <ThemedApp />
+          </ThemeProvider>
+        </StudyProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

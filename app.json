@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -25,6 +25,19 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "የጥቅስ ምስሎችን ለማስቀመጥ የምስል መዳረሻ ያስፈልጋል።",
+          "savePhotosPermission": "የጥቅስ ምስሎችን ወደ ማዕከለ-ሥዕሎች ለማስቀመጥ።",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
+    ],
+    "plugins": [
+      "expo-audio"
+    ]
   }
 }
