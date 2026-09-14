@@ -6,16 +6,32 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function parseReadingPosition(raw: unknown): UserStore['readingPosition'] {
+  if (!isObject(raw)) {
+    return null;
+  }
+  if (
+    typeof raw.bookIndex !== 'number' ||
+    typeof raw.chapterIndex !== 'number' ||
+    typeof raw.verseIndex !== 'number'
+  ) {
+    return null;
+  }
+  return {
+    bookIndex: raw.bookIndex,
+    chapterIndex: raw.chapterIndex,
+    verseIndex: raw.verseIndex,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
+  };
+}
+
 function migrateStore(raw: unknown): UserStore {
   if (!isObject(raw)) {
     return { ...EMPTY_USER_STORE };
   }
   return {
     version: 1,
-    readingPosition:
-      isObject(raw.readingPosition) && typeof raw.readingPosition.bookIndex === 'number'
-        ? (raw.readingPosition as UserStore['readingPosition'])
-        : null,
+    readingPosition: parseReadingPosition(raw.readingPosition),
     readingHistory: Array.isArray(raw.readingHistory)
       ? (raw.readingHistory as UserStore['readingHistory'])
       : [],

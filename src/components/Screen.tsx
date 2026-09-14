@@ -14,7 +14,12 @@ export function Screen({ children, edges = ['top'], style }: ScreenProps) {
   return (
     <SafeAreaView
       edges={edges}
-      style={[styles.safe, { backgroundColor: colors.background }, style]}
+      style={[
+        styles.safe,
+        { backgroundColor: colors.background },
+        colors.highContrast ? { borderColor: colors.border } : null,
+        style,
+      ]}
     >
       <View style={styles.fill}>{children}</View>
     </SafeAreaView>

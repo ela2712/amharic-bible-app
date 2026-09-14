@@ -11,11 +11,13 @@ export type HomeStackParamList = {
 };
 
 export type BibleStackParamList = {
-  BibleReader: {
-    bookIndex?: number;
-    chapterIndex?: number;
-    verseIndex?: number;
-  };
+  BibleReader:
+    | {
+        bookIndex?: number;
+        chapterIndex?: number;
+        verseIndex?: number;
+      }
+    | undefined;
   VerseImage: VerseRef;
 };
 

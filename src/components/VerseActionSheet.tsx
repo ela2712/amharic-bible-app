@@ -84,11 +84,21 @@ export function VerseActionSheet({
           <Action
             icon="copy-outline"
             label="ቅዳ"
+            onPress={() => run(() => copyVerse(verse, false).then(onClose))}
+          />
+          <Action
+            icon="documents-outline"
+            label="ቅዳ+ማጣቀሻ"
             onPress={() => run(() => copyVerse(verse, true).then(onClose))}
           />
           <Action
             icon="share-social-outline"
             label="አጋራ"
+            onPress={() => run(() => shareVerse(verse, false).then(onClose))}
+          />
+          <Action
+            icon="share-outline"
+            label="አጋራ+ማጣቀሻ"
             onPress={() => run(() => shareVerse(verse, true).then(onClose))}
           />
           <Action

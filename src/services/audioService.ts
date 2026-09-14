@@ -1,9 +1,12 @@
 /**
  * Audio Bible architecture.
  *
- * No narration files are bundled with this project. Do not invent remote URLs.
- * When chapter audio is added, drop files (or a manifest) into assets/audio
- * and map them in AUDIO_MANIFEST below. The player UI already talks to this service.
+ * No narration files are bundled. Do not invent remote URLs.
+ * When chapter audio is added, map local/require URIs (or file:// paths) in
+ * AUDIO_MANIFEST. The player UI talks only to this service.
+ *
+ * Connect files here:
+ *   AUDIO_MANIFEST.chapters.push({ bookIndex, chapterIndex, uri })
  */
 import type { AudioBibleManifest, AudioChapterSource } from '../types/study';
 import type { VerseRef } from '../types/bible';
@@ -22,6 +25,20 @@ export function getChapterAudio(
       (item) => item.bookIndex === bookIndex && item.chapterIndex === chapterIndex,
     ) ?? null
   );
+}
+
+export function getAdjacentAudioChapter(
+  bookIndex: number,
+  chapterIndex: number,
+  direction: -1 | 1,
+): AudioChapterSource | null {
+  const current = AUDIO_MANIFEST.chapters.findIndex(
+    (item) => item.bookIndex === bookIndex && item.chapterIndex === chapterIndex,
+  );
+  if (current < 0) {
+    return null;
+  }
+  return AUDIO_MANIFEST.chapters[current + direction] ?? null;
 }
 
 export function isAudioAvailable(): boolean {
@@ -44,3 +61,5 @@ export const UNAVAILABLE_AUDIO_STATE: AudioPlaybackState = {
   rate: 1,
   message: 'የድምጽ መጽሐፍ ቅዱስ ፋይሎች በዚህ ስሪት አልተካተቱም።',
 };
+
+export const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5] as const;

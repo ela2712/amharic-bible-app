@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -10,6 +10,7 @@ import { getBook, getChapter } from '../data/bible';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
 import type { HomeStackParamList, RootTabParamList } from '../types/navigation';
+import type { ReadingPlanDay } from '../types/study';
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList>,
@@ -46,15 +47,16 @@ export default function PlanDetailScreen() {
       } else {
         set.add(day);
       }
+      const completedDays = [...set].sort((a, b) => a - b);
       return {
         planId: plan.id,
         currentDay: nextIncompleteDay(plan, {
           planId: plan.id,
           currentDay: day,
-          completedDays: [...set],
+          completedDays,
           updatedAt: new Date().toISOString(),
         }),
-        completedDays: [...set].sort((a, b) => a - b),
+        completedDays,
         updatedAt: new Date().toISOString(),
       };
     });
@@ -63,65 +65,71 @@ export default function PlanDetailScreen() {
   const resume = plan.days.find((day) => day.day === resumeDay) ?? plan.days[0];
   const first = resume?.assignments[0];
 
+  const openChapter = (bookIndex: number, chapterIndex: number) => {
+    navigation.navigate('BibleTab', {
+      screen: 'BibleReader',
+      params: { bookIndex, chapterIndex },
+    });
+  };
+
+  const renderDay = ({ item }: { item: ReadingPlanDay }) => (
+    <View style={[styles.day, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <Pressable
+        onPress={() => toggleDay(item.day)}
+        style={styles.dayHead}
+        accessibilityRole="button"
+        accessibilityLabel={`ቀን ${item.day}`}
+      >
+        <Text style={{ color: colors.text, fontWeight: '800' }}>ቀን {item.day}</Text>
+        <Text style={{ color: completed.has(item.day) ? colors.success : colors.textMuted }}>
+          {completed.has(item.day) ? 'ተጠናቋል' : 'ክፈት'}
+        </Text>
+      </Pressable>
+      {item.assignments.map((assignment) => {
+        const book = getBook(assignment.bookIndex);
+        const chapter = getChapter(assignment.bookIndex, assignment.chapterIndex);
+        return (
+          <Pressable
+            key={`${assignment.bookIndex}-${assignment.chapterIndex}`}
+            onPress={() => openChapter(assignment.bookIndex, assignment.chapterIndex)}
+            style={{ paddingVertical: 6, minHeight: 44, justifyContent: 'center' }}
+          >
+            <Text style={{ color: colors.accent }}>
+              {book?.title} ምዕራፍ {chapter?.chapter}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.title, { color: colors.text }]}>{plan.title}</Text>
-        <Text style={{ color: colors.textSecondary, lineHeight: 24 }}>{plan.description}</Text>
-        <Text style={{ color: colors.accent, fontWeight: '800', marginVertical: 12 }}>
-          ሂደት {percent}% · ቀን {resumeDay}/{plan.days.length}
-        </Text>
-        {first ? (
-          <Pressable
-            onPress={() =>
-              navigation.navigate('BibleTab', {
-                screen: 'BibleReader',
-                params: { bookIndex: first.bookIndex, chapterIndex: first.chapterIndex },
-              })
-            }
-            style={[styles.resume, { backgroundColor: colors.accent }]}
-          >
-            <Text style={{ color: colors.accentText, fontWeight: '800' }}>ቀጥል · ቀን {resumeDay}</Text>
-          </Pressable>
-        ) : null}
-
-        {plan.days.map((day) => (
-          <View
-            key={day.day}
-            style={[styles.day, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          >
-            <Pressable onPress={() => toggleDay(day.day)} style={styles.dayHead}>
-              <Text style={{ color: colors.text, fontWeight: '800' }}>ቀን {day.day}</Text>
-              <Text style={{ color: completed.has(day.day) ? colors.success : colors.textMuted }}>
-                {completed.has(day.day) ? 'ተጠናቋል' : 'ክፈት'}
-              </Text>
-            </Pressable>
-            {day.assignments.map((assignment) => {
-              const book = getBook(assignment.bookIndex);
-              const chapter = getChapter(assignment.bookIndex, assignment.chapterIndex);
-              return (
-                <Pressable
-                  key={`${assignment.bookIndex}-${assignment.chapterIndex}`}
-                  onPress={() =>
-                    navigation.navigate('BibleTab', {
-                      screen: 'BibleReader',
-                      params: {
-                        bookIndex: assignment.bookIndex,
-                        chapterIndex: assignment.chapterIndex,
-                      },
-                    })
-                  }
-                  style={{ paddingVertical: 6 }}
-                >
-                  <Text style={{ color: colors.accent }}>
-                    {book?.title} ምዕራፍ {chapter?.chapter}
-                  </Text>
-                </Pressable>
-              );
-            })}
+      <FlatList
+        data={plan.days}
+        keyExtractor={(item) => String(item.day)}
+        renderItem={renderDay}
+        initialNumToRender={10}
+        windowSize={6}
+        contentContainerStyle={styles.content}
+        ListHeaderComponent={
+          <View>
+            <Text style={[styles.title, { color: colors.text }]}>{plan.title}</Text>
+            <Text style={{ color: colors.textSecondary, lineHeight: 24 }}>{plan.description}</Text>
+            <Text style={{ color: colors.accent, fontWeight: '800', marginVertical: 12 }}>
+              ሂደት {percent}% · ቀን {resumeDay}/{plan.days.length}
+            </Text>
+            {first ? (
+              <Pressable
+                onPress={() => openChapter(first.bookIndex, first.chapterIndex)}
+                style={[styles.resume, { backgroundColor: colors.accent }]}
+              >
+                <Text style={{ color: colors.accentText, fontWeight: '800' }}>ቀጥል · ቀን {resumeDay}</Text>
+              </Pressable>
+            ) : null}
           </View>
-        ))}
-      </ScrollView>
+        }
+      />
     </Screen>
   );
 }
@@ -138,5 +146,5 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   day: { borderWidth: 1, borderRadius: 14, padding: 12, marginBottom: 10 },
-  dayHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  dayHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, minHeight: 44 },
 });

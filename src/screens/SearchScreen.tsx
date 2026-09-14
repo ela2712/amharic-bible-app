@@ -38,7 +38,7 @@ export default function SearchScreen() {
   const lastSavedQuery = useRef('');
   useEffect(() => {
     const trimmed = debounced.trim();
-    if (trimmed.length >= 1 && trimmed !== lastSavedQuery.current) {
+    if (trimmed.length >= 2 && trimmed !== lastSavedQuery.current) {
       lastSavedQuery.current = trimmed;
       addSearchHistory(trimmed);
     }
@@ -89,6 +89,14 @@ export default function SearchScreen() {
               </Text>
             </Pressable>
           ))}
+          {bookIndex !== null ? (
+            <Pressable
+              onPress={() => setBookIndex(null)}
+              style={[styles.chip, { backgroundColor: colors.accentSoft }]}
+            >
+              <Text style={{ color: colors.accent, fontWeight: '700' }}>የመጽሐፍ ገደብ አንሳ</Text>
+            </Pressable>
+          ) : null}
           {query ? (
             <Pressable onPress={() => setQuery('')} style={[styles.chip, { backgroundColor: colors.surfaceMuted }]}>
               <Text style={{ color: colors.danger, fontWeight: '700' }}>አጽዳ</Text>

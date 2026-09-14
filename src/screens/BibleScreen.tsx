@@ -6,6 +6,7 @@ import {
   Text,
   View,
   type ListRenderItem,
+  type ViewToken,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,25 +23,37 @@ import {
   getAdjacentChapter,
   getBook,
   getChapter,
-  getBooks,
   getVerse,
 } from '../data/bible';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
 import { HIGHLIGHT_COLORS } from '../theme/themes';
-import type { BibleStackParamList } from '../types/navigation';
+import { readerTextStyle } from '../theme/typography';
+import type { BibleStackParamList, BibleReaderRoute } from '../types/navigation';
 import type { VerseLocation } from '../types/bible';
-import type { BibleReaderRoute } from '../types/navigation';
 
 interface VerseRowData {
   index: number;
   text: string;
 }
 
+function clampChapter(bookIndex: number, chapterIndex: number): {
+  bookIndex: number;
+  chapterIndex: number;
+} {
+  const book = getBook(bookIndex);
+  if (!book) {
+    return { bookIndex: 0, chapterIndex: 0 };
+  }
+  const maxChapter = Math.max(0, book.chapters.length - 1);
+  return {
+    bookIndex,
+    chapterIndex: Math.min(Math.max(0, chapterIndex), maxChapter),
+  };
+}
+
 const VerseRow = memo(function VerseRow({
   item,
-  bookIndex,
-  chapterIndex,
   fontSize,
   lineHeight,
   verseNumberSize,
@@ -54,8 +67,6 @@ const VerseRow = memo(function VerseRow({
   onOpen,
 }: {
   item: VerseRowData;
-  bookIndex: number;
-  chapterIndex: number;
   fontSize: number;
   lineHeight: number;
   verseNumberSize: number;
@@ -73,21 +84,14 @@ const VerseRow = memo(function VerseRow({
       onLongPress={() => onOpen(item.index)}
       onPress={() => onOpen(item.index)}
       accessibilityRole="button"
-      accessibilityLabel={`ጥቅስ ${item.index + 1}`}
+      accessibilityLabel={`ጥቅስ ${item.index + 1}. ${item.text}`}
       style={[
         styles.verseRow,
         highlightColor ? { backgroundColor: highlightColor } : null,
         isFocused ? styles.focusedVerse : null,
       ]}
     >
-      <Text
-        style={{
-          fontSize,
-          lineHeight: fontSize * lineHeight,
-          color: textColor,
-          includeFontPadding: false,
-        }}
-      >
+      <Text style={readerTextStyle(fontSize, lineHeight, textColor)}>
         {showVerseNumbers ? (
           <Text
             style={{
@@ -116,6 +120,7 @@ export default function BibleScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<BibleStackParamList>>();
   const route = useRoute<BibleReaderRoute>();
   const {
+    ready,
     store,
     settings,
     setReadingPosition,
@@ -125,9 +130,8 @@ export default function BibleScreen() {
     isBookmarked,
   } = useStudy();
 
-  const initial = store.readingPosition;
-  const [bookIndex, setBookIndex] = useState(initial?.bookIndex ?? 0);
-  const [chapterIndex, setChapterIndex] = useState(initial?.chapterIndex ?? 0);
+  const [bookIndex, setBookIndex] = useState(0);
+  const [chapterIndex, setChapterIndex] = useState(0);
   const [focusVerse, setFocusVerse] = useState<number | null>(null);
   const [showBooks, setShowBooks] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
@@ -136,21 +140,44 @@ export default function BibleScreen() {
   const [noteVerse, setNoteVerse] = useState<VerseLocation | null>(null);
   const [studyVerse, setStudyVerse] = useState<VerseLocation | null>(null);
   const listRef = useRef<FlatList<VerseRowData>>(null);
+  const restoredRef = useRef(false);
+  const locationRef = useRef({ bookIndex: 0, chapterIndex: 0 });
+  locationRef.current = { bookIndex, chapterIndex };
+
+  const applyLocation = useCallback(
+    (nextBook: number, nextChapter: number, nextVerse = 0) => {
+      const clamped = clampChapter(nextBook, nextChapter);
+      setBookIndex(clamped.bookIndex);
+      setChapterIndex(clamped.chapterIndex);
+      setFocusVerse(nextVerse);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!ready || restoredRef.current) {
+      return;
+    }
+    restoredRef.current = true;
+    const params = route.params;
+    if (typeof params?.bookIndex === 'number') {
+      applyLocation(params.bookIndex, params.chapterIndex ?? 0, params.verseIndex ?? 0);
+      return;
+    }
+    const saved = store.readingPosition;
+    if (saved) {
+      applyLocation(saved.bookIndex, saved.chapterIndex, saved.verseIndex);
+    }
+  }, [ready, applyLocation, route.params, store.readingPosition]);
 
   useEffect(() => {
     const params = route.params;
-    if (typeof params?.bookIndex === 'number') {
-      setBookIndex(params.bookIndex);
+    if (!restoredRef.current || typeof params?.bookIndex !== 'number') {
+      return;
     }
-    if (typeof params?.chapterIndex === 'number') {
-      setChapterIndex(params.chapterIndex);
-    }
-    if (typeof params?.verseIndex === 'number') {
-      setFocusVerse(params.verseIndex);
-    }
-  }, [route.params]);
+    applyLocation(params.bookIndex, params.chapterIndex ?? 0, params.verseIndex ?? 0);
+  }, [route.params, applyLocation]);
 
-  const books = getBooks();
   const book = getBook(bookIndex);
   const chapter = getChapter(bookIndex, chapterIndex);
   const verses: VerseRowData[] = useMemo(
@@ -162,14 +189,20 @@ export default function BibleScreen() {
     if (!book || !chapter) {
       return;
     }
+    addHistory(bookIndex, chapterIndex);
+  }, [bookIndex, chapterIndex, book, chapter, addHistory]);
+
+  useEffect(() => {
+    if (!book || !chapter) {
+      return;
+    }
     setReadingPosition({
       bookIndex,
       chapterIndex,
       verseIndex: focusVerse ?? 0,
       updatedAt: new Date().toISOString(),
     });
-    addHistory(bookIndex, chapterIndex);
-  }, [bookIndex, chapterIndex, book, chapter, focusVerse, setReadingPosition, addHistory]);
+  }, [bookIndex, chapterIndex, book, chapter, focusVerse, setReadingPosition]);
 
   useEffect(() => {
     if (focusVerse == null) {
@@ -177,7 +210,7 @@ export default function BibleScreen() {
     }
     const handle = setTimeout(() => {
       try {
-        listRef.current?.scrollToIndex({ index: focusVerse, viewPosition: 0.2, animated: true });
+        listRef.current?.scrollToIndex({ index: focusVerse, viewPosition: 0.18, animated: true });
       } catch {
         listRef.current?.scrollToOffset({ offset: 0, animated: false });
       }
@@ -195,14 +228,28 @@ export default function BibleScreen() {
     [bookIndex, chapterIndex],
   );
 
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const first = viewableItems[0];
+    if (typeof first?.index !== 'number') {
+      return;
+    }
+    const location = locationRef.current;
+    setReadingPosition({
+      bookIndex: location.bookIndex,
+      chapterIndex: location.chapterIndex,
+      verseIndex: first.index,
+      updatedAt: new Date().toISOString(),
+    });
+  }).current;
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 40 }).current;
+
   const goAdjacent = (direction: -1 | 1) => {
     const next = getAdjacentChapter(bookIndex, chapterIndex, direction);
     if (!next) {
       return;
     }
-    setBookIndex(next.bookIndex);
-    setChapterIndex(next.chapterIndex);
-    setFocusVerse(0);
+    applyLocation(next.bookIndex, next.chapterIndex, 0);
   };
 
   const renderItem: ListRenderItem<VerseRowData> = useCallback(
@@ -212,8 +259,6 @@ export default function BibleScreen() {
       return (
         <VerseRow
           item={item}
-          bookIndex={bookIndex}
-          chapterIndex={chapterIndex}
           fontSize={settings.reader.fontSize}
           lineHeight={settings.reader.lineHeight}
           verseNumberSize={settings.reader.verseNumberSize}
@@ -258,7 +303,12 @@ export default function BibleScreen() {
 
   return (
     <Screen>
-      <View style={[styles.header, { backgroundColor: colors.header, borderBottomColor: colors.border }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.header, borderBottomColor: colors.border },
+        ]}
+      >
         <Pressable
           onPress={() => setShowBooks(true)}
           style={styles.headerMain}
@@ -294,7 +344,14 @@ export default function BibleScreen() {
         maxToRenderPerBatch={10}
         windowSize={7}
         removeClippedSubviews
-        onScrollToIndexFailed={() => undefined}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        onScrollToIndexFailed={(info) => {
+          listRef.current?.scrollToOffset({
+            offset: Math.max(0, info.averageItemLength * info.index),
+            animated: false,
+          });
+        }}
         contentContainerStyle={{
           paddingHorizontal: settings.reader.horizontalMargin,
           paddingTop: 12,
@@ -334,27 +391,26 @@ export default function BibleScreen() {
         </Pressable>
       </View>
 
-      <AudioPlayerBar bookTitle={book.title} chapterLabel={`ምዕራፍ ${chapter.chapter}`} />
+      <AudioPlayerBar
+        bookIndex={bookIndex}
+        chapterIndex={chapterIndex}
+        bookTitle={book.title}
+        chapterLabel={`ምዕራፍ ${chapter.chapter}`}
+        onOpenChapter={(nextBook, nextChapter) => applyLocation(nextBook, nextChapter, 0)}
+      />
 
       <BookSelectorModal
         visible={showBooks}
         selectedIndex={bookIndex}
         onClose={() => setShowBooks(false)}
-        onSelect={(index) => {
-          setBookIndex(index);
-          setChapterIndex(0);
-          setFocusVerse(0);
-        }}
+        onSelect={(index) => applyLocation(index, 0, 0)}
       />
       <ChapterSelectorModal
         visible={showChapters}
         bookIndex={bookIndex}
         chapterIndex={chapterIndex}
         onClose={() => setShowChapters(false)}
-        onSelect={(index) => {
-          setChapterIndex(index);
-          setFocusVerse(0);
-        }}
+        onSelect={(index) => applyLocation(bookIndex, index, 0)}
       />
       <ReaderSettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
       <VerseActionSheet
@@ -380,13 +436,8 @@ export default function BibleScreen() {
         verse={studyVerse}
         visible={Boolean(studyVerse)}
         onClose={() => setStudyVerse(null)}
-        onOpenRef={(b, c, v) => {
-          setBookIndex(b);
-          setChapterIndex(c);
-          setFocusVerse(v);
-        }}
+        onOpenRef={(b, c, v) => applyLocation(b, c, v)}
       />
-      <Text style={styles.hidden}>{books.length}</Text>
     </Screen>
   );
 }
@@ -429,5 +480,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   error: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  hidden: { height: 0, width: 0, opacity: 0 },
 });

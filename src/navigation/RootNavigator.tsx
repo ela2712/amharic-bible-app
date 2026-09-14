@@ -115,10 +115,12 @@ export function RootNavigator() {
       }}
     >
       <Tab.Navigator
+        backBehavior="history"
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: colors.tabInactive,
+          tabBarHideOnKeyboard: true,
           tabBarStyle: {
             backgroundColor: colors.tabBar,
             borderTopColor: colors.border,
@@ -137,14 +139,30 @@ export function RootNavigator() {
           },
         })}
       >
-        <Tab.Screen name="HomeTab" component={HomeStackNavigator} options={{ title: 'ቤት' }} />
-        <Tab.Screen name="BibleTab" component={BibleStackNavigator} options={{ title: 'መጽሐፍ' }} />
-        <Tab.Screen name="SearchTab" component={SearchStackNavigator} options={{ title: 'ፍለጋ' }} />
-        <Tab.Screen name="SavedTab" component={SavedStackNavigator} options={{ title: 'የተቀመጡ' }} />
+        <Tab.Screen
+          name="HomeTab"
+          component={HomeStackNavigator}
+          options={{ title: 'ቤት', tabBarAccessibilityLabel: 'ቤት' }}
+        />
+        <Tab.Screen
+          name="BibleTab"
+          component={BibleStackNavigator}
+          options={{ title: 'መጽሐፍ', tabBarAccessibilityLabel: 'መጽሐፍ ቅዱስ' }}
+        />
+        <Tab.Screen
+          name="SearchTab"
+          component={SearchStackNavigator}
+          options={{ title: 'ፍለጋ', tabBarAccessibilityLabel: 'ፍለጋ' }}
+        />
+        <Tab.Screen
+          name="SavedTab"
+          component={SavedStackNavigator}
+          options={{ title: 'የተቀመጡ', tabBarAccessibilityLabel: 'የተቀመጡ' }}
+        />
         <Tab.Screen
           name="SettingsTab"
           component={SettingsStackNavigator}
-          options={{ title: 'ቅንብሮች' }}
+          options={{ title: 'ቅንብሮች', tabBarAccessibilityLabel: 'ቅንብሮች' }}
         />
       </Tab.Navigator>
     </NavigationContainer>

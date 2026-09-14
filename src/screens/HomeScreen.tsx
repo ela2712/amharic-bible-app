@@ -111,7 +111,7 @@ export default function HomeScreen() {
               label={isBookmarked(daily) ? 'ተቀምጧል' : 'አስቀምጥ'}
               onPress={() => toggleBookmark(daily)}
             />
-            <Chip label="ተጨማሪ" onPress={() => setActiveVerse(daily)} />
+            <Chip label="ቀለም" onPress={() => setActiveVerse(daily)} />
           </View>
         </View>
 
@@ -143,7 +143,9 @@ export default function HomeScreen() {
             icon="book-outline"
             title="መጽሐፍ ቅዱስ"
             subtitle="ሁሉንም መጻሕፍት"
-            onPress={() => navigation.navigate('BibleTab', { screen: 'BibleReader' })}
+            onPress={() =>
+              navigation.navigate('BibleTab', { screen: 'BibleReader', params: {} })
+            }
           />
           <Quick
             icon="search-outline"
@@ -164,6 +166,25 @@ export default function HomeScreen() {
             onPress={() => navigation.navigate('Plans')}
           />
         </View>
+
+        <Text style={[styles.section, { color: colors.text }]}>የተቀመጡ ጥቅሶች</Text>
+        {store.bookmarks.length === 0 ? (
+          <Text style={{ color: colors.textMuted, marginBottom: 16 }}>
+            ጥቅስ ላይ በመጫን ምልክት ያድርጉ።
+          </Text>
+        ) : (
+          store.bookmarks.slice(0, 3).map((item) => (
+            <Pressable
+              key={item.id}
+              onPress={() => openReader(item.ref.bookIndex, item.ref.chapterIndex, item.ref.verseIndex)}
+              style={[styles.history, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
+              <Text style={{ color: colors.text, fontWeight: '700', flex: 1 }} numberOfLines={1}>
+                {item.bookTitle} {item.chapterNumber}:{item.verseNumber}
+              </Text>
+            </Pressable>
+          ))
+        )}
 
         <Text style={[styles.section, { color: colors.text }]}>የንባብ ዕቅዶች</Text>
         {listPlans().slice(0, 3).map((plan) => {

@@ -88,7 +88,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     if (!ready) {
       return;
     }
-    saveUserStore(store).catch(() => undefined);
+    const handle = setTimeout(() => {
+      saveUserStore(store).catch(() => undefined);
+    }, 350);
+    return () => clearTimeout(handle);
   }, [store, ready]);
 
   const setTheme = useCallback((theme: ThemeName) => {
@@ -109,7 +112,18 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setReadingPosition = useCallback((position: ReadingPosition) => {
-    setStore((current) => ({ ...current, readingPosition: position }));
+    setStore((current) => {
+      const prev = current.readingPosition;
+      if (
+        prev &&
+        prev.bookIndex === position.bookIndex &&
+        prev.chapterIndex === position.chapterIndex &&
+        prev.verseIndex === position.verseIndex
+      ) {
+        return current;
+      }
+      return { ...current, readingPosition: position };
+    });
   }, []);
 
   const addHistory = useCallback((bookIndex: number, chapterIndex: number) => {

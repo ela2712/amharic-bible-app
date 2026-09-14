@@ -18,7 +18,7 @@ type TabKey = 'bookmarks' | 'highlights' | 'notes';
 export default function SavedScreen() {
   const colors = useAppTheme();
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
-  const { store, toggleBookmark, setHighlight } = useStudy();
+  const { store, toggleBookmark, setHighlight, deleteNote } = useStudy();
   const [tab, setTab] = useState<TabKey>('bookmarks');
   const [query, setQuery] = useState('');
   const [noteVerse, setNoteVerse] = useState<VerseLocation | null>(null);
@@ -186,12 +186,16 @@ export default function SavedScreen() {
                 {item.text}
               </Text>
               <Text style={{ color: colors.text, marginTop: 8, lineHeight: 26 }}>{item.content}</Text>
-              <Pressable
-                onPress={() => openVerse(item.ref.bookIndex, item.ref.chapterIndex, item.ref.verseIndex)}
-                style={{ marginTop: 10 }}
-              >
-                <Text style={{ color: colors.accent, fontWeight: '700' }}>ጥቅሱን ክፈት</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 16, marginTop: 10 }}>
+                <Pressable
+                  onPress={() => openVerse(item.ref.bookIndex, item.ref.chapterIndex, item.ref.verseIndex)}
+                >
+                  <Text style={{ color: colors.accent, fontWeight: '700' }}>ጥቅሱን ክፈት</Text>
+                </Pressable>
+                <Pressable onPress={() => deleteNote(item.ref)}>
+                  <Text style={{ color: colors.danger, fontWeight: '700' }}>ሰርዝ</Text>
+                </Pressable>
+              </View>
             </Pressable>
           )}
         />
