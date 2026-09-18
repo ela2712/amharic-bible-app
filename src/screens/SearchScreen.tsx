@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, InteractionManager, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Screen } from '../components/Screen';
@@ -22,7 +22,10 @@ export default function SearchScreen() {
   const debounced = useDebouncedValue(query, 280);
 
   useEffect(() => {
-    warmupSearchIndex();
+    const task = InteractionManager.runAfterInteractions(() => {
+      warmupSearchIndex();
+    });
+    return () => task.cancel();
   }, []);
 
   const results = useMemo(

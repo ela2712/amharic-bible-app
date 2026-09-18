@@ -1,9 +1,9 @@
-import { getReadingPlan, READING_PLANS } from '../data/plans';
+import { getReadingPlan, getReadingPlans } from '../data/plans';
 import type { ReadingPlan } from '../types/study';
 import type { PlanProgress } from '../types/user';
 
 export function listPlans(): ReadingPlan[] {
-  return READING_PLANS;
+  return getReadingPlans();
 }
 
 export function planDayCount(plan: ReadingPlan): number {

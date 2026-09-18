@@ -1,4 +1,6 @@
-import rawBible from '../../assets/bible/amharic_bible.json';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system/legacy';
+import bibleAsset from '../../assets/bible/amharic_bible.biblejson';
 import type {
   BibleBook,
   BibleChapter,
@@ -71,13 +73,74 @@ function parseDataset(raw: unknown): BibleDataset {
   };
 }
 
-export const bible: BibleDataset = parseDataset(rawBible);
+let dataset: BibleDataset | null = null;
+let loading: Promise<BibleDataset> | null = null;
+
+async function readPackedBible(): Promise<unknown> {
+  const asset = Asset.fromModule(bibleAsset);
+  await asset.downloadAsync();
+  const uri = asset.localUri ?? asset.uri;
+  if (!uri) {
+    throw new Error('Bible asset could not be resolved.');
+  }
+  try {
+    const response = await fetch(uri);
+    if (response.ok) {
+      return response.json();
+    }
+  } catch {
+    // Native file:// URIs are not always fetchable.
+  }
+  const raw = await FileSystem.readAsStringAsync(uri);
+  return JSON.parse(raw);
+}
+
+export async function loadBible(): Promise<BibleDataset> {
+  if (dataset) {
+    return dataset;
+  }
+  if (!loading) {
+    loading = readPackedBible()
+      .then(parseDataset)
+      .then((parsed) => {
+        dataset = parsed;
+        return parsed;
+      })
+      .catch((error) => {
+        loading = null;
+        throw error;
+      });
+  }
+  return loading;
+}
+
+export function isBibleReady(): boolean {
+  return dataset !== null;
+}
+
+function requireBible(): BibleDataset {
+  if (!dataset) {
+    throw new Error('Bible dataset is not loaded yet.');
+  }
+  return dataset;
+}
+
+export const bible: BibleDataset = {
+  get title() {
+    return requireBible().title;
+  },
+  get books() {
+    return requireBible().books;
+  },
+};
 
 export const AMHARIC_TRANSLATION: Translation = {
   id: 'amharic-1962',
   name: 'መጽሐፍ ቅዱስ',
   language: 'am',
-  books: bible.books,
+  get books() {
+    return requireBible().books;
+  },
 };
 
 const OT_COUNT = 39;
@@ -205,4 +268,19 @@ export function flattenVerseRefs(): VerseRef[] {
 
 export function isValidRef(ref: VerseRef): boolean {
   return getVerse(ref) !== null;
+}
+
+export function verseAtOrdinal(ordinal: number): VerseLocation | null {
+  let remaining = ordinal;
+  for (let bookIndex = 0; bookIndex < bible.books.length; bookIndex += 1) {
+    const book = bible.books[bookIndex];
+    for (let chapterIndex = 0; chapterIndex < book.chapters.length; chapterIndex += 1) {
+      const chapter = book.chapters[chapterIndex];
+      if (remaining < chapter.verses.length) {
+        return getVerse({ bookIndex, chapterIndex, verseIndex: remaining });
+      }
+      remaining -= chapter.verses.length;
+    }
+  }
+  return getVerse({ bookIndex: 0, chapterIndex: 0, verseIndex: 0 });
 }

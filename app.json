@@ -27,6 +27,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "plugins": [
       [
         "expo-audio",
@@ -42,7 +45,8 @@
           "savePhotosPermission": "የጥቅስ ምስሎችን ወደ ማዕከለ-ሥዕሎች ለማስቀመጥ።",
           "isAccessMediaLocationEnabled": true
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }

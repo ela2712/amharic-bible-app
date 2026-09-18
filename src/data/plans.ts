@@ -49,51 +49,62 @@ function oneChapterPerDay(assignments: ReadingAssignment[]): ReadingPlanDay[] {
  * chapter list (book order). A historical "chronological" plan is not included
  * because no independent chronology dataset is shipped with the app.
  */
-export const READING_PLANS: ReadingPlan[] = [
-  {
-    id: 'gospels-30',
-    title: 'ወንጌላት በ30 ቀን',
-    description: 'የማቴዎስ፣ ማርቆስ፣ ሉቃስ እና ዮሐንስ ወንጌሎች በሠላሳ ቀን።',
-    days: chunkAssignments(chaptersInRange(39, 42), 30),
-  },
-  {
-    id: 'proverbs-31',
-    title: 'ምሳሌ በ31 ቀን',
-    description: 'በየቀኑ አንድ የምሳሌ ምዕራፍ።',
-    days: oneChapterPerDay(chaptersInRange(19, 19)),
-  },
-  {
-    id: 'psalms-150',
-    title: 'መዝሙረ ዳዊት',
-    description: 'በየቀኑ አንድ መዝሙር።',
-    days: oneChapterPerDay(chaptersInRange(18, 18)),
-  },
-  {
-    id: 'nt-90',
-    title: 'ሐዲስ ኪዳን በ90 ቀን',
-    description: 'መላው ሐዲስ ኪዳን በሰማንያ ዘጠኝ እስከ ዘጠና ቀን።',
-    days: chunkAssignments(
-      bible.books.flatMap((book, bookIndex) =>
-        getTestament(bookIndex) === 'nt'
-          ? book.chapters.map((_chapter, chapterIndex) => ({ bookIndex, chapterIndex }))
-          : [],
+function buildReadingPlans(): ReadingPlan[] {
+  return [
+    {
+      id: 'gospels-30',
+      title: 'ወንጌላት በ30 ቀን',
+      description: 'የማቴዎስ፣ ማርቆስ፣ ሉቃስ እና ዮሐንስ ወንጌሎች በሠላሳ ቀን።',
+      days: chunkAssignments(chaptersInRange(39, 42), 30),
+    },
+    {
+      id: 'proverbs-31',
+      title: 'ምሳሌ በ31 ቀን',
+      description: 'በየቀኑ አንድ የምሳሌ ምዕራፍ።',
+      days: oneChapterPerDay(chaptersInRange(19, 19)),
+    },
+    {
+      id: 'psalms-150',
+      title: 'መዝሙረ ዳዊት',
+      description: 'በየቀኑ አንድ መዝሙር።',
+      days: oneChapterPerDay(chaptersInRange(18, 18)),
+    },
+    {
+      id: 'nt-90',
+      title: 'ሐዲስ ኪዳን በ90 ቀን',
+      description: 'መላው ሐዲስ ኪዳን በሰማንያ ዘጠኝ እስከ ዘጠና ቀን።',
+      days: chunkAssignments(
+        bible.books.flatMap((book, bookIndex) =>
+          getTestament(bookIndex) === 'nt'
+            ? book.chapters.map((_chapter, chapterIndex) => ({ bookIndex, chapterIndex }))
+            : [],
+        ),
+        90,
       ),
-      90,
-    ),
-  },
-  {
-    id: 'bible-365',
-    title: 'መጽሐፍ ቅዱስ በአንድ ዓመት',
-    description: 'ሁሉም መጻሕፍት በመጽሐፉ ቅደም ተከተል በ365 ቀን።',
-    days: chunkAssignments(
-      bible.books.flatMap((book, bookIndex) =>
-        book.chapters.map((_chapter, chapterIndex) => ({ bookIndex, chapterIndex })),
+    },
+    {
+      id: 'bible-365',
+      title: 'መጽሐፍ ቅዱስ በአንድ ዓመት',
+      description: 'ሁሉም መጻሕፍት በመጽሐፉ ቅደም ተከተል በ365 ቀን።',
+      days: chunkAssignments(
+        bible.books.flatMap((book, bookIndex) =>
+          book.chapters.map((_chapter, chapterIndex) => ({ bookIndex, chapterIndex })),
+        ),
+        365,
       ),
-      365,
-    ),
-  },
-];
+    },
+  ];
+}
+
+let cachedPlans: ReadingPlan[] | null = null;
+
+export function getReadingPlans(): ReadingPlan[] {
+  if (!cachedPlans) {
+    cachedPlans = buildReadingPlans();
+  }
+  return cachedPlans;
+}
 
 export function getReadingPlan(planId: string): ReadingPlan | null {
-  return READING_PLANS.find((plan) => plan.id === planId) ?? null;
+  return getReadingPlans().find((plan) => plan.id === planId) ?? null;
 }

@@ -4,5 +4,5 @@
     "strict": true,
     "resolveJsonModule": true
   },
-  "include": ["**/*.ts", "**/*.tsx", "assets/**/*.json"]
+  "include": ["**/*.ts", "**/*.tsx", "src/types/json.d.ts"]
 }

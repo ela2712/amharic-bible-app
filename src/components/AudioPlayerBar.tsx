@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../theme/ThemeContext';
 import { useChapterAudio } from '../hooks/useChapterAudio';
+import { getChapterAudio } from '../services/audioService';
 
 interface Props {
   bookIndex: number;
@@ -18,7 +19,30 @@ function formatTime(ms: number): string {
   return `${minutes}:${`${seconds}`.padStart(2, '0')}`;
 }
 
-export function AudioPlayerBar({
+function UnavailableAudioBar({
+  bookTitle,
+  chapterLabel,
+}: Pick<Props, 'bookTitle' | 'chapterLabel'>) {
+  const colors = useAppTheme();
+  return (
+    <View style={[styles.bar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <Ionicons name="headset-outline" size={20} color={colors.accent} />
+      <View style={styles.meta}>
+        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+          {bookTitle} {chapterLabel}
+        </Text>
+        <Text style={[styles.sub, { color: colors.textMuted }]} numberOfLines={2}>
+          የድምጽ መጽሐፍ ቅዱስ ፋይሎች በዚህ ስሪት አልተካተቱም።
+        </Text>
+      </View>
+      <View style={[styles.play, { backgroundColor: colors.surfaceMuted }]}>
+        <Ionicons name="play" size={18} color={colors.textMuted} />
+      </View>
+    </View>
+  );
+}
+
+function AvailableAudioBar({
   bookIndex,
   chapterIndex,
   bookTitle,
@@ -41,23 +65,18 @@ export function AudioPlayerBar({
           {bookTitle} {chapterLabel}
         </Text>
         <Text style={[styles.sub, { color: colors.textMuted }]} numberOfLines={2}>
-          {audio.available
-            ? `${formatTime(audio.state.positionMs)} / ${formatTime(audio.state.durationMs)} · ${audio.state.rate}x`
-            : audio.state.message}
+          {`${formatTime(audio.state.positionMs)} / ${formatTime(audio.state.durationMs)} · ${audio.state.rate}x`}
         </Text>
-        {audio.available ? (
-          <View style={[styles.track, { backgroundColor: colors.surfaceMuted }]}>
-            <View
-              style={[
-                styles.fill,
-                { width: `${Math.min(100, Math.round(progress * 100))}%`, backgroundColor: colors.accent },
-              ]}
-            />
-          </View>
-        ) : null}
+        <View style={[styles.track, { backgroundColor: colors.surfaceMuted }]}>
+          <View
+            style={[
+              styles.fill,
+              { width: `${Math.min(100, Math.round(progress * 100))}%`, backgroundColor: colors.accent },
+            ]}
+          />
+        </View>
       </View>
-      {audio.available ? (
-        <View style={styles.controls}>
+      <View style={styles.controls}>
           <Pressable
             disabled={!prev}
             accessibilityLabel="ቀዳሚ ድምጽ"
@@ -84,13 +103,17 @@ export function AudioPlayerBar({
             <Text style={{ color: colors.accent, fontWeight: '800', fontSize: 12 }}>{audio.state.rate}x</Text>
           </Pressable>
         </View>
-      ) : (
-        <View style={[styles.play, { backgroundColor: colors.surfaceMuted }]}>
-          <Ionicons name="play" size={18} color={colors.textMuted} />
-        </View>
-      )}
     </View>
   );
+}
+
+export function AudioPlayerBar(props: Props) {
+  const { bookIndex, chapterIndex } = props;
+  const sourceAvailable = Boolean(getChapterAudio(bookIndex, chapterIndex));
+  if (!sourceAvailable) {
+    return <UnavailableAudioBar bookTitle={props.bookTitle} chapterLabel={props.chapterLabel} />;
+  }
+  return <AvailableAudioBar {...props} />;
 }
 
 const styles = StyleSheet.create({

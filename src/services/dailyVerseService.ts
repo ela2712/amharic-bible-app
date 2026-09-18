@@ -1,5 +1,5 @@
 import type { VerseLocation } from '../types/bible';
-import { flattenVerseRefs, getVerse } from '../data/bible';
+import { countVerses, getVerse, verseAtOrdinal } from '../data/bible';
 
 function dateKey(date: Date): string {
   const year = date.getFullYear();
@@ -17,13 +17,13 @@ function hashString(value: string): number {
   return hash >>> 0;
 }
 
-let cachedRefs: ReturnType<typeof flattenVerseRefs> | null = null;
+let cachedCount: number | null = null;
 
 export function getDailyVerse(date = new Date()): VerseLocation {
-  cachedRefs = cachedRefs ?? flattenVerseRefs();
-  const refs = cachedRefs;
-  const index = hashString(dateKey(date)) % refs.length;
-  const verse = getVerse(refs[index]);
+  cachedCount = cachedCount ?? countVerses();
+  const total = cachedCount;
+  const index = total > 0 ? hashString(dateKey(date)) % total : 0;
+  const verse = verseAtOrdinal(index);
   if (!verse) {
     const fallback = getVerse({ bookIndex: 0, chapterIndex: 0, verseIndex: 0 });
     if (!fallback) {
