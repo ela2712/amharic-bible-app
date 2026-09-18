@@ -3,7 +3,7 @@ declare module '*.json' {
   export default value;
 }
 
-declare module '*.biblejson' {
+declare module '*.txt' {
   const asset: number;
   export default asset;
 }

@@ -1,12 +1,46 @@
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { StudyProvider, useStudy } from './src/context/StudyContext';
 import { ThemeProvider, useAppTheme } from './src/theme/ThemeContext';
-import { RootNavigator } from './src/navigation/RootNavigator';
 import { loadBible } from './src/data/bible';
+
+const RootNavigator = lazy(async () => {
+  const mod = await import('./src/navigation/RootNavigator');
+  return { default: mod.RootNavigator };
+});
+
+function BootMessage({
+  title,
+  message,
+  onRetry,
+}: {
+  title: string;
+  message: string;
+  onRetry?: () => void;
+}) {
+  const colors = useAppTheme();
+  return (
+    <View style={[styles.boot, { backgroundColor: colors.background }]}>
+      {onRetry ? null : <ActivityIndicator size="large" color={colors.accent} />}
+      <Text style={[styles.bootTitle, { color: colors.text }]}>{title}</Text>
+      <Text style={[styles.bootMessage, { color: colors.textMuted }]}>{message}</Text>
+      {onRetry ? (
+        <Pressable
+          onPress={onRetry}
+          style={[styles.retry, { backgroundColor: colors.accent }]}
+          accessibilityRole="button"
+          accessibilityLabel="እንደገና ሞክር"
+        >
+          <Text style={[styles.retryLabel, { color: colors.accentText }]}>እንደገና ሞክር</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
 
 function ThemedApp() {
   const colors = useAppTheme();
@@ -15,13 +49,18 @@ function ThemedApp() {
   return (
     <>
       <StatusBar style={light ? 'dark' : 'light'} backgroundColor={colors.background} />
-      <RootNavigator />
+      <Suspense
+        fallback={
+          <BootMessage title="መጽሐፍ ቅዱስ" message="መተግበሪያው በመጫን ላይ ነው…" />
+        }
+      >
+        <RootNavigator />
+      </Suspense>
     </>
   );
 }
 
 function BibleBootstrap({ children }: { children: ReactNode }) {
-  const colors = useAppTheme();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +70,8 @@ function BibleBootstrap({ children }: { children: ReactNode }) {
     loadBible()
       .then(() => setReady(true))
       .catch((cause) => {
-        setError(cause instanceof Error ? cause.message : 'መጽሐፍ ቅዱስ መጫን አልተቻለም።');
+        const detail = cause instanceof Error ? cause.message : String(cause);
+        setError(detail);
       });
   }, []);
 
@@ -43,45 +83,32 @@ function BibleBootstrap({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  return (
-    <View style={[styles.boot, { backgroundColor: colors.background }]}>
-      {error ? (
-        <>
-          <Text style={[styles.bootTitle, { color: colors.text }]}>መጽሐፍ ቅዱስ</Text>
-          <Text style={[styles.bootMessage, { color: colors.textMuted }]}>{error}</Text>
-          <Pressable
-            onPress={startLoad}
-            style={[styles.retry, { backgroundColor: colors.accent }]}
-            accessibilityRole="button"
-            accessibilityLabel="እንደገና ሞክር"
-          >
-            <Text style={[styles.retryLabel, { color: colors.accentText }]}>እንደገና ሞክር</Text>
-          </Pressable>
-        </>
-      ) : (
-        <>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={[styles.bootTitle, { color: colors.text }]}>መጽሐፍ ቅዱስ</Text>
-          <Text style={[styles.bootMessage, { color: colors.textMuted }]}>
-            ጽሑፉ በመጫን ላይ ነው…
-          </Text>
-        </>
-      )}
-    </View>
-  );
+  if (error) {
+    return (
+      <BootMessage
+        title="መጽሐፍ ቅዱስ"
+        message={error}
+        onRetry={startLoad}
+      />
+    );
+  }
+
+  return <BootMessage title="መጽሐፍ ቅዱስ" message="ጽሑፉ በመጫን ላይ ነው…" />;
 }
 
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StudyProvider>
-          <ThemeProvider>
-            <BibleBootstrap>
-              <ThemedApp />
-            </BibleBootstrap>
-          </ThemeProvider>
-        </StudyProvider>
+        <ErrorBoundary>
+          <StudyProvider>
+            <ThemeProvider>
+              <BibleBootstrap>
+                <ThemedApp />
+              </BibleBootstrap>
+            </ThemeProvider>
+          </StudyProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -93,20 +120,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
-    gap: 12,
   },
   bootTitle: {
     fontSize: 28,
     fontWeight: '800',
-    marginTop: 8,
+    marginTop: 16,
+    marginBottom: 8,
   },
   bootMessage: {
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
+    marginBottom: 16,
   },
   retry: {
-    marginTop: 8,
     minHeight: 44,
     paddingHorizontal: 20,
     borderRadius: 12,

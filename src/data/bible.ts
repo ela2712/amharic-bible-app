@@ -1,6 +1,5 @@
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
-import bibleAsset from '../../assets/bible/amharic_bible.biblejson';
 import type {
   BibleBook,
   BibleChapter,
@@ -12,6 +11,9 @@ import type {
   VerseLocation,
   VerseRef,
 } from '../types/bible';
+
+// Metro asset (not a JS module). require() keeps Hermes from parsing 5.5MB of JSON at bundle eval.
+const packedBible = require('../../assets/bible/amharic_bible.txt') as number | { uri: string };
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
@@ -76,8 +78,22 @@ function parseDataset(raw: unknown): BibleDataset {
 let dataset: BibleDataset | null = null;
 let loading: Promise<BibleDataset> | null = null;
 
+function resolveAssetModule(mod: unknown): Parameters<typeof Asset.fromModule>[0] {
+  if (typeof mod === 'number' || typeof mod === 'string') {
+    return mod;
+  }
+  if (mod && typeof mod === 'object' && 'default' in mod) {
+    return resolveAssetModule((mod as { default: unknown }).default);
+  }
+  if (mod && typeof mod === 'object' && 'uri' in mod && typeof (mod as { uri: unknown }).uri === 'string') {
+    const packed = mod as { uri: string; width?: number; height?: number };
+    return { uri: packed.uri, width: packed.width ?? 0, height: packed.height ?? 0 };
+  }
+  throw new Error('Bible asset module is invalid.');
+}
+
 async function readPackedBible(): Promise<unknown> {
-  const asset = Asset.fromModule(bibleAsset);
+  const asset = Asset.fromModule(resolveAssetModule(packedBible));
   await asset.downloadAsync();
   const uri = asset.localUri ?? asset.uri;
   if (!uri) {
