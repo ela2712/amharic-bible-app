@@ -48,7 +48,7 @@ function ThemedApp() {
   const light = settings.theme === 'light' || settings.theme === 'sepia';
   return (
     <>
-      <StatusBar style={light ? 'dark' : 'light'} backgroundColor={colors.background} />
+      <StatusBar style={light ? 'dark' : 'light'} />
       <Suspense
         fallback={
           <BootMessage title="መጽሐፍ ቅዱስ" message="መተግበሪያው በመጫን ላይ ነው…" />
