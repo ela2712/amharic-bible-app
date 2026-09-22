@@ -1,5 +1,3 @@
-import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system/legacy';
 import type {
   BibleBook,
   BibleChapter,
@@ -11,9 +9,6 @@ import type {
   VerseLocation,
   VerseRef,
 } from '../types/bible';
-
-// Metro asset (not a JS module). require() keeps Hermes from parsing 5.5MB of JSON at bundle eval.
-const packedBible = require('../../assets/bible/amharic_bible.txt') as number | { uri: string };
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
@@ -93,6 +88,7 @@ function resolveAssetModule(mod: unknown): Parameters<typeof Asset.fromModule>[0
 }
 
 async function readPackedBible(): Promise<unknown> {
+  const { packedBible } = await import('./bibleAsset');
   const asset = Asset.fromModule(resolveAssetModule(packedBible));
   await asset.downloadAsync();
   const uri = asset.localUri ?? asset.uri;

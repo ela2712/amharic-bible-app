@@ -1,8 +1,11 @@
 {
-  "extends": "expo/tsconfig.base",
+  "extends": "./node_modules/expo/tsconfig.base.json",
   "compilerOptions": {
     "strict": true,
-    "resolveJsonModule": true
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "skipLibCheck": true
   },
-  "include": ["**/*.ts", "**/*.tsx", "src/types/json.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx", "src/types/json.d.ts"],
+  "exclude": ["node_modules"]
 }
