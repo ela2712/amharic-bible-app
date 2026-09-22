@@ -1,17 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
-import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { StudyProvider, useStudy } from './src/context/StudyContext';
 import { ThemeProvider, useAppTheme } from './src/theme/ThemeContext';
+import { RootNavigator } from './src/navigation/RootNavigator';
 import { loadBible } from './src/data/bible';
-
-const RootNavigator = lazy(async () => {
-  const mod = await import('./src/navigation/RootNavigator');
-  return { default: mod.RootNavigator };
-});
 
 function BootMessage({
   title,
@@ -49,13 +45,7 @@ function ThemedApp() {
   return (
     <>
       <StatusBar style={light ? 'dark' : 'light'} />
-      <Suspense
-        fallback={
-          <BootMessage title="መጽሐፍ ቅዱስ" message="መተግበሪያው በመጫን ላይ ነው…" />
-        }
-      >
-        <RootNavigator />
-      </Suspense>
+      <RootNavigator />
     </>
   );
 }
