@@ -1,8 +1,8 @@
+import { StyleSheet } from 'react-native';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import HomeScreen from '../screens/HomeScreen';
 import BibleScreen from '../screens/BibleScreen';
 import SearchScreen from '../screens/SearchScreen';
 import SavedScreen from '../screens/SavedScreen';
@@ -14,7 +14,6 @@ import { useAppTheme } from '../theme/ThemeContext';
 import { useStudy } from '../context/StudyContext';
 import type {
   BibleStackParamList,
-  HomeStackParamList,
   RootTabParamList,
   SavedStackParamList,
   SearchStackParamList,
@@ -22,29 +21,10 @@ import type {
 } from '../types/navigation';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
-const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const BibleStack = createNativeStackNavigator<BibleStackParamList>();
 const SearchStack = createNativeStackNavigator<SearchStackParamList>();
 const SavedStack = createNativeStackNavigator<SavedStackParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
-
-function HomeStackNavigator() {
-  const colors = useAppTheme();
-  return (
-    <HomeStack.Navigator
-      screenOptions={{
-        headerTintColor: colors.accent,
-        headerStyle: { backgroundColor: colors.header },
-        headerTitleStyle: { color: colors.text },
-        contentStyle: { backgroundColor: colors.background },
-      }}
-    >
-      <HomeStack.Screen name="HomeMain" component={HomeScreen} options={{ headerShown: false }} />
-      <HomeStack.Screen name="Plans" component={PlansScreen} options={{ title: 'የንባብ ዕቅዶች' }} />
-      <HomeStack.Screen name="PlanDetail" component={PlanDetailScreen} options={{ title: 'ዕቅድ' }} />
-    </HomeStack.Navigator>
-  );
-}
 
 function BibleStackNavigator() {
   const colors = useAppTheme();
@@ -54,7 +34,7 @@ function BibleStackNavigator() {
         headerTintColor: colors.accent,
         headerStyle: { backgroundColor: colors.header },
         headerTitleStyle: { color: colors.text },
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: colors.readerBackground },
       }}
     >
       <BibleStack.Screen
@@ -88,9 +68,23 @@ function SavedStackNavigator() {
 }
 
 function SettingsStackNavigator() {
+  const colors = useAppTheme();
   return (
-    <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
-      <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
+    <SettingsStack.Navigator
+      screenOptions={{
+        headerTintColor: colors.accent,
+        headerStyle: { backgroundColor: colors.header },
+        headerTitleStyle: { color: colors.text },
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <SettingsStack.Screen
+        name="SettingsMain"
+        component={SettingsScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStack.Screen name="Plans" component={PlansScreen} options={{ title: 'የንባብ ዕቅዶች' }} />
+      <SettingsStack.Screen name="PlanDetail" component={PlanDetailScreen} options={{ title: 'ዕቅድ' }} />
     </SettingsStack.Navigator>
   );
 }
@@ -115,6 +109,7 @@ export function RootNavigator() {
       }}
     >
       <Tab.Navigator
+        initialRouteName="BibleTab"
         backBehavior="history"
         screenOptions={({ route }) => ({
           headerShown: false,
@@ -124,26 +119,24 @@ export function RootNavigator() {
           tabBarStyle: {
             backgroundColor: colors.tabBar,
             borderTopColor: colors.border,
-            minHeight: 58,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            height: 54,
+            paddingTop: 2,
+            elevation: 0,
+            shadowOpacity: 0,
           },
-          tabBarLabelStyle: { fontSize: 12, fontWeight: '700' },
+          tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
           tabBarIcon: ({ color, size, focused }) => {
             const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-              HomeTab: focused ? 'home' : 'home-outline',
               BibleTab: focused ? 'book' : 'book-outline',
               SearchTab: focused ? 'search' : 'search-outline',
               SavedTab: focused ? 'bookmark' : 'bookmark-outline',
-              SettingsTab: focused ? 'settings' : 'settings-outline',
+              SettingsTab: focused ? 'ellipsis-horizontal' : 'ellipsis-horizontal-outline',
             };
             return <Ionicons name={icons[route.name]} size={size} color={color} />;
           },
         })}
       >
-        <Tab.Screen
-          name="HomeTab"
-          component={HomeStackNavigator}
-          options={{ title: 'ቤት', tabBarAccessibilityLabel: 'ቤት' }}
-        />
         <Tab.Screen
           name="BibleTab"
           component={BibleStackNavigator}
@@ -162,7 +155,7 @@ export function RootNavigator() {
         <Tab.Screen
           name="SettingsTab"
           component={SettingsStackNavigator}
-          options={{ title: 'ቅንብሮች', tabBarAccessibilityLabel: 'ቅንብሮች' }}
+          options={{ title: 'ተጨማሪ', tabBarAccessibilityLabel: 'ተጨማሪ' }}
         />
       </Tab.Navigator>
     </NavigationContainer>

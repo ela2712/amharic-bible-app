@@ -7,16 +7,17 @@ interface ScreenProps {
   children: ReactNode;
   edges?: Array<'top' | 'bottom' | 'left' | 'right'>;
   style?: ViewStyle;
+  backgroundColor?: string;
 }
 
-export function Screen({ children, edges = ['top'], style }: ScreenProps) {
+export function Screen({ children, edges = ['top'], style, backgroundColor }: ScreenProps) {
   const colors = useAppTheme();
   return (
     <SafeAreaView
       edges={edges}
       style={[
         styles.safe,
-        { backgroundColor: colors.background },
+        { backgroundColor: backgroundColor ?? colors.background },
         colors.highContrast ? { borderColor: colors.border } : null,
         style,
       ]}

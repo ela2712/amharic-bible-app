@@ -3,11 +3,11 @@ import { FlatList, InteractionManager, Pressable, StyleSheet, Text, TextInput, V
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Screen } from '../components/Screen';
+import { PageTitle, Segmented } from '../components/ui';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { searchBible, warmupSearchIndex } from '../services/searchService';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
-import { getBookMetas } from '../data/bible';
 import type { RootTabParamList } from '../types/navigation';
 import type { Testament } from '../types/bible';
 import type { SearchHit } from '../types/study';
@@ -61,7 +61,7 @@ export default function SearchScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>ፍለጋ</Text>
+        <PageTitle title="ፍለጋ" />
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -73,46 +73,24 @@ export default function SearchScreen() {
             { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
           ]}
         />
-        <View style={styles.filters}>
-          {([
-            ['all', 'ሁሉም'],
-            ['ot', 'ብሉይ'],
-            ['nt', 'ሐዲስ'],
-          ] as const).map(([id, label]) => (
-            <Pressable
-              key={id}
-              onPress={() => setTestament(id)}
-              style={[
-                styles.chip,
-                { backgroundColor: testament === id ? colors.accent : colors.surfaceMuted },
-              ]}
-            >
-              <Text style={{ color: testament === id ? colors.accentText : colors.text, fontWeight: '700' }}>
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-          {bookIndex !== null ? (
-            <Pressable
-              onPress={() => setBookIndex(null)}
-              style={[styles.chip, { backgroundColor: colors.accentSoft }]}
-            >
-              <Text style={{ color: colors.accent, fontWeight: '700' }}>የመጽሐፍ ገደብ አንሳ</Text>
-            </Pressable>
-          ) : null}
-          {query ? (
-            <Pressable onPress={() => setQuery('')} style={[styles.chip, { backgroundColor: colors.surfaceMuted }]}>
-              <Text style={{ color: colors.danger, fontWeight: '700' }}>አጽዳ</Text>
-            </Pressable>
-          ) : null}
+        <View style={{ marginTop: 12 }}>
+          <Segmented
+            value={testament}
+            options={[
+              { id: 'all', label: 'ሁሉም' },
+              { id: 'ot', label: 'ብሉይ' },
+              { id: 'nt', label: 'ሐዲስ' },
+            ]}
+            onChange={(id) => setTestament(id)}
+          />
         </View>
       </View>
 
       {!query.trim() ? (
         <View style={styles.body}>
-          <Text style={[styles.section, { color: colors.text }]}>የቅርብ ፍለጋ</Text>
+          <Text style={[styles.section, { color: colors.textMuted }]}>የቅርብ ፍለጋ</Text>
           {store.searchHistory.length === 0 ? (
-            <Text style={{ color: colors.textMuted }}>የፍለጋ ታሪክ የለም።</Text>
+            <Text style={{ color: colors.textMuted, lineHeight: 24 }}>ቃል ይጻፉ። ውጤቶች እዚህ ይታያሉ።</Text>
           ) : (
             <>
               <View style={styles.filters}>
@@ -120,39 +98,17 @@ export default function SearchScreen() {
                   <Pressable
                     key={item}
                     onPress={() => setQuery(item)}
-                    style={[styles.chip, { backgroundColor: colors.accentSoft }]}
+                    style={[styles.chip, { backgroundColor: colors.surfaceMuted }]}
                   >
-                    <Text style={{ color: colors.accent }}>{item}</Text>
+                    <Text style={{ color: colors.text }}>{item}</Text>
                   </Pressable>
                 ))}
               </View>
               <Pressable onPress={clearSearchHistory}>
-                <Text style={{ color: colors.danger, marginTop: 12, fontWeight: '700' }}>ታሪክ አጽዳ</Text>
+                <Text style={{ color: colors.textMuted, marginTop: 12 }}>ታሪክ አጽዳ</Text>
               </Pressable>
             </>
           )}
-          <Text style={[styles.section, { color: colors.text, marginTop: 24 }]}>በመጽሐፍ ገድብ</Text>
-          <FlatList
-            data={[{ index: -1, title: 'ሁሉም መጻሕፍት' }, ...getBookMetas()]}
-            keyExtractor={(item) => String(item.index)}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => setBookIndex(item.index < 0 ? null : item.index)}
-                style={[
-                  styles.bookRow,
-                  {
-                    backgroundColor:
-                      (item.index < 0 && bookIndex === null) || item.index === bookIndex
-                        ? colors.accentSoft
-                        : colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text style={{ color: colors.text }}>{item.title}</Text>
-              </Pressable>
-            )}
-          />
         </View>
       ) : results.length === 0 ? (
         <View style={styles.empty}>
@@ -222,19 +178,17 @@ function escapeRegExp(value: string): string {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 16, paddingTop: 8 },
-  title: { fontSize: 28, fontWeight: '800', marginBottom: 12 },
   input: {
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 14,
     minHeight: 48,
     paddingHorizontal: 14,
     fontSize: 17,
   },
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  chip: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, justifyContent: 'center' },
+  chip: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, justifyContent: 'center' },
   body: { flex: 1, padding: 16 },
-  section: { fontSize: 18, fontWeight: '800', marginBottom: 10 },
-  bookRow: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 8 },
+  section: { fontSize: 13, fontWeight: '700', marginBottom: 10 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  result: { borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 10 },
+  result: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14, marginBottom: 10 },
 });

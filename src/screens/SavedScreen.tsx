@@ -3,6 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-na
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Screen } from '../components/Screen';
+import { PageTitle, Segmented } from '../components/ui';
 import { NoteEditorModal } from '../components/NoteEditorModal';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
@@ -63,7 +64,7 @@ export default function SavedScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>የተቀመጡ</Text>
+        <PageTitle title="የተቀመጡ" />
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -74,27 +75,16 @@ export default function SavedScreen() {
             { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
           ]}
         />
-        <View style={styles.tabs}>
-          {(
-            [
-              ['bookmarks', `ምልክት (${store.bookmarks.length})`],
-              ['highlights', `ቀለም (${store.highlights.length})`],
-              ['notes', `ማስታወሻ (${store.notes.length})`],
-            ] as const
-          ).map(([id, label]) => (
-            <Pressable
-              key={id}
-              onPress={() => setTab(id)}
-              style={[
-                styles.tab,
-                { backgroundColor: tab === id ? colors.accent : colors.surfaceMuted },
-              ]}
-            >
-              <Text style={{ color: tab === id ? colors.accentText : colors.text, fontWeight: '700', fontSize: 13 }}>
-                {label}
-              </Text>
-            </Pressable>
-          ))}
+        <View style={{ marginTop: 12 }}>
+          <Segmented
+            value={tab}
+            options={[
+              { id: 'bookmarks', label: 'ምልክት' },
+              { id: 'highlights', label: 'ቀለም' },
+              { id: 'notes', label: 'ማስታወሻ' },
+            ]}
+            onChange={setTab}
+          />
         </View>
       </View>
 
@@ -217,12 +207,9 @@ function Empty({ text }: { text: string }) {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 16, paddingTop: 8 },
-  title: { fontSize: 28, fontWeight: '800', marginBottom: 12 },
-  input: { borderWidth: 1, borderRadius: 14, minHeight: 48, paddingHorizontal: 14, fontSize: 16 },
-  tabs: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  tab: { flex: 1, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, minHeight: 48, paddingHorizontal: 14, fontSize: 16 },
   list: { padding: 16, paddingBottom: 40 },
-  card: { borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 10 },
+  card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14, marginBottom: 10 },
   colorRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dot: { width: 14, height: 14, borderRadius: 7 },
 });

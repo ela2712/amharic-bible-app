@@ -4,12 +4,6 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { CompositeNavigationProp, RouteProp } from '@react-navigation/native';
 import type { VerseRef } from './bible';
 
-export type HomeStackParamList = {
-  HomeMain: undefined;
-  Plans: undefined;
-  PlanDetail: { planId: string };
-};
-
 export type BibleStackParamList = {
   BibleReader:
     | {
@@ -31,10 +25,11 @@ export type SearchStackParamList = {
 
 export type SettingsStackParamList = {
   SettingsMain: undefined;
+  Plans: undefined;
+  PlanDetail: { planId: string };
 };
 
 export type RootTabParamList = {
-  HomeTab: NavigatorScreenParams<HomeStackParamList>;
   BibleTab: NavigatorScreenParams<BibleStackParamList>;
   SearchTab: NavigatorScreenParams<SearchStackParamList>;
   SavedTab: NavigatorScreenParams<SavedStackParamList>;

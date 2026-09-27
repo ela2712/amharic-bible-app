@@ -19,29 +19,6 @@ function formatTime(ms: number): string {
   return `${minutes}:${`${seconds}`.padStart(2, '0')}`;
 }
 
-function UnavailableAudioBar({
-  bookTitle,
-  chapterLabel,
-}: Pick<Props, 'bookTitle' | 'chapterLabel'>) {
-  const colors = useAppTheme();
-  return (
-    <View style={[styles.bar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Ionicons name="headset-outline" size={20} color={colors.accent} />
-      <View style={styles.meta}>
-        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-          {bookTitle} {chapterLabel}
-        </Text>
-        <Text style={[styles.sub, { color: colors.textMuted }]} numberOfLines={2}>
-          የድምጽ መጽሐፍ ቅዱስ ፋይሎች በዚህ ስሪት አልተካተቱም።
-        </Text>
-      </View>
-      <View style={[styles.play, { backgroundColor: colors.surfaceMuted }]}>
-        <Ionicons name="play" size={18} color={colors.textMuted} />
-      </View>
-    </View>
-  );
-}
-
 function AvailableAudioBar({
   bookIndex,
   chapterIndex,
@@ -109,9 +86,8 @@ function AvailableAudioBar({
 
 export function AudioPlayerBar(props: Props) {
   const { bookIndex, chapterIndex } = props;
-  const sourceAvailable = Boolean(getChapterAudio(bookIndex, chapterIndex));
-  if (!sourceAvailable) {
-    return <UnavailableAudioBar bookTitle={props.bookTitle} chapterLabel={props.chapterLabel} />;
+  if (!getChapterAudio(bookIndex, chapterIndex)) {
+    return null;
   }
   return <AvailableAudioBar {...props} />;
 }

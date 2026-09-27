@@ -84,26 +84,16 @@ export function VerseActionSheet({
           <Action
             icon="copy-outline"
             label="ቅዳ"
-            onPress={() => run(() => copyVerse(verse, false).then(onClose))}
-          />
-          <Action
-            icon="documents-outline"
-            label="ቅዳ+ማጣቀሻ"
             onPress={() => run(() => copyVerse(verse, true).then(onClose))}
           />
           <Action
-            icon="share-social-outline"
-            label="አጋራ"
-            onPress={() => run(() => shareVerse(verse, false).then(onClose))}
-          />
-          <Action
             icon="share-outline"
-            label="አጋራ+ማጣቀሻ"
+            label="አጋራ"
             onPress={() => run(() => shareVerse(verse, true).then(onClose))}
           />
           <Action
             icon={bookmarked ? 'bookmark' : 'bookmark-outline'}
-            label={bookmarked ? 'አስወግድ' : 'ምልክት'}
+            label={bookmarked ? 'ተቀምጧል' : 'ምልክት'}
             onPress={() => run(() => toggleBookmark(verse))}
           />
           <Action
@@ -122,14 +112,16 @@ export function VerseActionSheet({
               onCreateImage(verse);
             }}
           />
-          <Action
-            icon="library-outline"
-            label="ጥናት"
-            onPress={() => {
-              onClose();
-              onOpenStudy(verse);
-            }}
-          />
+          {hasCrossReferences() || hasStrongsData() ? (
+            <Action
+              icon="library-outline"
+              label="ጥናት"
+              onPress={() => {
+                onClose();
+                onOpenStudy(verse);
+              }}
+            />
+          ) : null}
         </View>
         {highlight ? (
           <Pressable onPress={() => run(() => setHighlight(verse, null))}>

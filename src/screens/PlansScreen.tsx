@@ -2,23 +2,21 @@ import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Screen } from '../components/Screen';
+import { PageTitle } from '../components/ui';
 import { listPlans, progressPercent } from '../services/readingPlanService';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
-import type { HomeStackParamList } from '../types/navigation';
+import type { SettingsStackParamList } from '../types/navigation';
 
 export default function PlansScreen() {
   const colors = useAppTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
   const { store } = useStudy();
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.title, { color: colors.text }]}>የንባብ ዕቅዶች</Text>
-        <Text style={{ color: colors.textMuted, lineHeight: 24, marginBottom: 16 }}>
-          ዕቅዶቹ ከዚህ መተግበሪያ መጽሐፍ ቅዱስ ምዕራፎች በቀጥታ ተገንብተዋል። ታሪካዊ «የጊዜ ቅደም ተከተል» መረጃ አልተካተተም።
-        </Text>
+        <PageTitle title="የንባብ ዕቅዶች" subtitle="ከመጽሐፉ ምዕራፎች የተገነቡ ዕቅዶች" />
         {listPlans().map((plan) => {
           const percent = progressPercent(plan, store.planProgress[plan.id]);
           return (

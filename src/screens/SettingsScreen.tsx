@@ -1,21 +1,34 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Screen } from '../components/Screen';
+import { PageTitle } from '../components/ui';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
 import { THEME_LABELS } from '../theme/themes';
 import type { ThemeName } from '../types/user';
 import { exportUserStore, importUserStoreFile } from '../services/backupService';
 import { getActiveTranslation } from '../services/translationService';
-import { isAudioAvailable } from '../services/audioService';
-import { hasCrossReferences } from '../services/crossReferenceService';
-import { hasStrongsData } from '../services/strongsService';
+import { getDailyVerse } from '../services/dailyVerseService';
+import { formatReference } from '../data/bible';
+import type { RootTabParamList, SettingsStackParamList } from '../types/navigation';
 
 const THEMES: ThemeName[] = ['light', 'sepia', 'dark', 'amoled'];
 
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<SettingsStackParamList>,
+  BottomTabNavigationProp<RootTabParamList>
+>;
+
 export default function SettingsScreen() {
   const colors = useAppTheme();
+  const navigation = useNavigation<Nav>();
   const { settings, setTheme, store, replaceStore, resetStore } = useStudy();
   const translation = getActiveTranslation();
+  const daily = useMemo(() => getDailyVerse(), []);
 
   const exportData = async () => {
     try {
@@ -40,7 +53,42 @@ export default function SettingsScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.title, { color: colors.text }]}>ቅንብሮች</Text>
+        <PageTitle title="ተጨማሪ" />
+
+        <Pressable
+          onPress={() =>
+            navigation.navigate('BibleTab', {
+              screen: 'BibleReader',
+              params: {
+                bookIndex: daily.bookIndex,
+                chapterIndex: daily.chapterIndex,
+                verseIndex: daily.verseIndex,
+              },
+            })
+          }
+          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          accessibilityRole="button"
+          accessibilityLabel="የዛሬ ጥቅስ"
+        >
+          <Text style={{ color: colors.textMuted, fontWeight: '700', fontSize: 12 }}>የዛሬ ጥቅስ</Text>
+          <Text style={{ color: colors.accent, fontWeight: '700', marginTop: 6 }}>
+            {formatReference(daily)}
+          </Text>
+          <Text style={{ color: colors.text, marginTop: 8, lineHeight: 24 }} numberOfLines={4}>
+            {daily.text}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('Plans')}
+          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          accessibilityRole="button"
+        >
+          <Text style={{ color: colors.text, fontWeight: '700', fontSize: 17 }}>የንባብ ዕቅዶች</Text>
+          <Text style={{ color: colors.textMuted, marginTop: 6, lineHeight: 22 }}>
+            365 ቀን እና አጭር ዕቅዶች
+          </Text>
+        </Pressable>
 
         <Text style={[styles.section, { color: colors.text }]}>ገጽታ</Text>
         <View style={styles.row}>
@@ -75,19 +123,19 @@ export default function SettingsScreen() {
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>{translation.name}</Text>
           <Text style={{ color: colors.textMuted, marginTop: 6, lineHeight: 22 }}>
-            ቋንቋ፦ {translation.language}. ሌላ ትርጉም በዚህ ስሪት አልተካተተም።
+            ቋንቋ፦ {translation.language}
           </Text>
         </View>
 
         <Text style={[styles.section, { color: colors.text }]}>ምትኬ</Text>
         <Text style={{ color: colors.textMuted, lineHeight: 22, marginBottom: 10 }}>
-          ምልክቶች፣ ቀለሞች፣ ማስታወሻዎች፣ ቅንብሮች እና የንባብ ሂደት በመሣሪያዎ ላይ ይቀመጣሉ። የደመና ስምሪት የለም።
+          ምልክቶች፣ ቀለሞች፣ ማስታወሻዎች እና የንባብ ሂደት በዚህ መሣሪያ ላይ ይቀመጣሉ።
         </Text>
         <Pressable onPress={exportData} style={[styles.button, { backgroundColor: colors.accent }]}>
-          <Text style={{ color: colors.accentText, fontWeight: '800' }}>JSON ምትኬ አጋራ</Text>
+          <Text style={{ color: colors.accentText, fontWeight: '700' }}>ምትኬ አጋራ</Text>
         </Pressable>
         <Pressable onPress={importData} style={[styles.button, { backgroundColor: colors.surfaceMuted }]}>
-          <Text style={{ color: colors.text, fontWeight: '800' }}>ምትኬ መልስ</Text>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>ምትኬ መልስ</Text>
         </Pressable>
         <Pressable
           onPress={() =>
@@ -98,24 +146,8 @@ export default function SettingsScreen() {
           }
           style={[styles.button, { backgroundColor: colors.surfaceMuted }]}
         >
-          <Text style={{ color: colors.danger, fontWeight: '800' }}>የግል መረጃ አጽዳ</Text>
+          <Text style={{ color: colors.danger, fontWeight: '700' }}>የግል መረጃ አጽዳ</Text>
         </Pressable>
-
-        <Text style={[styles.section, { color: colors.text }]}>ያልተካተቱ መረጃዎች</Text>
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={{ color: colors.textSecondary, lineHeight: 24 }}>
-            ድምጽ፦ {isAudioAvailable() ? 'ዝግጁ' : 'ፋይል የለም (`src/services/audioService.ts`)'}
-          </Text>
-          <Text style={{ color: colors.textSecondary, lineHeight: 24 }}>
-            ተያያዥ ጥቅሶች፦ {hasCrossReferences() ? 'ዝግጁ' : 'መረጃ የለም'}
-          </Text>
-          <Text style={{ color: colors.textSecondary, lineHeight: 24 }}>
-            Strong&apos;s፦ {hasStrongsData() ? 'ዝግጁ' : 'መረጃ የለም'}
-          </Text>
-          <Text style={{ color: colors.textMuted, marginTop: 8, lineHeight: 22 }}>
-            Ethiopic ቅርጸ-ቁምፊ ፋይል በፕሮጀክቱ ውስጥ የለም፤ የመሣሪያው ስርዓት ፊደል ጥቅም ላይ ይውላል።
-          </Text>
-        </View>
       </ScrollView>
     </Screen>
   );
@@ -123,8 +155,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 40 },
-  title: { fontSize: 28, fontWeight: '800', marginBottom: 16 },
-  section: { fontSize: 18, fontWeight: '800', marginTop: 18, marginBottom: 10 },
+  section: { fontSize: 13, fontWeight: '700', marginTop: 18, marginBottom: 10 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   theme: {
     minHeight: 44,
@@ -133,7 +164,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
   },
-  card: { borderWidth: 1, borderRadius: 16, padding: 16 },
+  card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 16, marginBottom: 12 },
   button: {
     minHeight: 48,
     borderRadius: 12,

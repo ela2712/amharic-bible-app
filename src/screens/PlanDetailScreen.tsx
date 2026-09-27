@@ -9,18 +9,18 @@ import { getReadingPlan, nextIncompleteDay, progressPercent } from '../services/
 import { getBook, getChapter } from '../data/bible';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
-import type { HomeStackParamList, RootTabParamList } from '../types/navigation';
+import type { RootTabParamList, SettingsStackParamList } from '../types/navigation';
 import type { ReadingPlanDay } from '../types/study';
 
 type Nav = CompositeNavigationProp<
-  NativeStackNavigationProp<HomeStackParamList>,
+  NativeStackNavigationProp<SettingsStackParamList>,
   BottomTabNavigationProp<RootTabParamList>
 >;
 
 export default function PlanDetailScreen() {
   const colors = useAppTheme();
   const navigation = useNavigation<Nav>();
-  const route = useRoute<RouteProp<HomeStackParamList, 'PlanDetail'>>();
+  const route = useRoute<RouteProp<SettingsStackParamList, 'PlanDetail'>>();
   const { store, setPlanProgress } = useStudy();
   const plan = getReadingPlan(route.params.planId);
 

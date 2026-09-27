@@ -8,6 +8,7 @@ import {
   type ListRenderItem,
   type ViewToken,
 } from 'react-native';
+import { Directions, FlingGestureHandler, State } from 'react-native-gesture-handler';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ import {
   getChapter,
   getVerse,
 } from '../data/bible';
+import { getDailyVerse } from '../services/dailyVerseService';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
 import { HIGHLIGHT_COLORS } from '../theme/themes';
@@ -95,8 +97,8 @@ const VerseRow = memo(function VerseRow({
         {showVerseNumbers ? (
           <Text
             style={{
-              fontSize: verseNumberSize,
-              fontWeight: '800',
+              fontSize: Math.max(11, verseNumberSize - 2),
+              fontWeight: '600',
               color: numberColor,
             }}
           >
@@ -244,13 +246,19 @@ export default function BibleScreen() {
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 40 }).current;
 
-  const goAdjacent = (direction: -1 | 1) => {
-    const next = getAdjacentChapter(bookIndex, chapterIndex, direction);
+  const goAdjacent = useCallback((direction: -1 | 1) => {
+    const current = locationRef.current;
+    const next = getAdjacentChapter(current.bookIndex, current.chapterIndex, direction);
     if (!next) {
       return;
     }
     applyLocation(next.bookIndex, next.chapterIndex, 0);
-  };
+  }, [applyLocation]);
+
+  const openDaily = useCallback(() => {
+    const daily = getDailyVerse();
+    applyLocation(daily.bookIndex, daily.chapterIndex, daily.verseIndex);
+  }, [applyLocation]);
 
   const renderItem: ListRenderItem<VerseRowData> = useCallback(
     ({ item }) => {
@@ -289,7 +297,7 @@ export default function BibleScreen() {
 
   if (!book || !chapter) {
     return (
-      <Screen>
+      <Screen backgroundColor={colors.readerBackground}>
         <View style={styles.error}>
           <Text style={{ color: colors.text, fontSize: 18 }}>መጽሐፉ ሊከፈት አልቻለም።</Text>
         </View>
@@ -297,16 +305,14 @@ export default function BibleScreen() {
     );
   }
 
-  const prev = getAdjacentChapter(bookIndex, chapterIndex, -1);
-  const next = getAdjacentChapter(bookIndex, chapterIndex, 1);
   const widthPercent = Math.min(100, Math.max(70, settings.reader.readingWidth));
 
   return (
-    <Screen>
+    <Screen backgroundColor={colors.readerBackground}>
       <View
         style={[
           styles.header,
-          { backgroundColor: colors.header, borderBottomColor: colors.border },
+          { backgroundColor: colors.readerBackground, borderBottomColor: colors.border },
         ]}
       >
         <Pressable
@@ -318,78 +324,80 @@ export default function BibleScreen() {
           <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={1}>
             {book.title}
           </Text>
-          <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+          <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
         </Pressable>
         <View style={styles.headerActions}>
           <Pressable
             onPress={() => setShowChapters(true)}
-            style={[styles.chapterChip, { backgroundColor: colors.accentSoft }]}
             accessibilityRole="button"
             accessibilityLabel="ምዕራፍ ይምረጡ"
+            style={styles.iconBtn}
           >
-            <Text style={{ color: colors.accent, fontWeight: '800' }}>ም {chapter.chapter}</Text>
+            <Text style={{ color: colors.accent, fontWeight: '700', fontSize: 16 }}>{chapter.chapter}</Text>
           </Pressable>
-          <Pressable onPress={() => setShowSettings(true)} accessibilityLabel="የንባብ ቅንብሮች">
+          <Pressable onPress={openDaily} accessibilityLabel="የዛሬ ጥቅስ" style={styles.iconBtn}>
+            <Ionicons name="sunny-outline" size={22} color={colors.accent} />
+          </Pressable>
+          <Pressable onPress={() => setShowSettings(true)} accessibilityLabel="የንባብ ቅንብሮች" style={styles.iconBtn}>
             <Ionicons name="text" size={22} color={colors.accent} />
           </Pressable>
         </View>
       </View>
 
-      <FlatList
-        ref={listRef}
-        data={verses}
-        keyExtractor={(item) => String(item.index)}
-        renderItem={renderItem}
-        initialNumToRender={12}
-        maxToRenderPerBatch={10}
-        windowSize={7}
-        removeClippedSubviews
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        onScrollToIndexFailed={(info) => {
-          listRef.current?.scrollToOffset({
-            offset: Math.max(0, info.averageItemLength * info.index),
-            animated: false,
-          });
+      <FlingGestureHandler
+        direction={Directions.RIGHT}
+        onHandlerStateChange={({ nativeEvent }) => {
+          if (nativeEvent.state === State.END) {
+            goAdjacent(-1);
+          }
         }}
-        contentContainerStyle={{
-          paddingHorizontal: settings.reader.horizontalMargin,
-          paddingTop: 12,
-          paddingBottom: 24,
-          width: `${widthPercent}%`,
-          alignSelf: 'center',
-        }}
-        extraData={`${store.highlights.length}-${store.notes.length}-${store.bookmarks.length}-${settings.reader.fontSize}-${focusVerse}`}
-        ListEmptyComponent={
-          <Text style={{ color: colors.textMuted, padding: 24 }}>በዚህ ምዕራፍ ጥቅስ የለም።</Text>
-        }
-      />
-
-      <View style={[styles.nav, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-        <Pressable
-          disabled={!prev}
-          onPress={() => goAdjacent(-1)}
-          style={[styles.navBtn, { backgroundColor: prev ? colors.accent : colors.surfaceMuted }]}
-          accessibilityLabel="ቀዳሚ ምዕራፍ"
+      >
+        <FlingGestureHandler
+          direction={Directions.LEFT}
+          onHandlerStateChange={({ nativeEvent }) => {
+            if (nativeEvent.state === State.END) {
+              goAdjacent(1);
+            }
+          }}
         >
-          <Text style={{ color: prev ? colors.accentText : colors.textMuted, fontWeight: '700' }}>
-            ‹ ቀዳሚ
-          </Text>
-        </Pressable>
-        <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>
-          {chapterIndex + 1} / {book.chapters.length}
-        </Text>
-        <Pressable
-          disabled={!next}
-          onPress={() => goAdjacent(1)}
-          style={[styles.navBtn, { backgroundColor: next ? colors.accent : colors.surfaceMuted }]}
-          accessibilityLabel="ቀጣይ ምዕራፍ"
-        >
-          <Text style={{ color: next ? colors.accentText : colors.textMuted, fontWeight: '700' }}>
-            ቀጣይ ›
-          </Text>
-        </Pressable>
-      </View>
+          <View style={styles.fill}>
+            <FlatList
+              ref={listRef}
+              data={verses}
+              keyExtractor={(item) => String(item.index)}
+              renderItem={renderItem}
+              initialNumToRender={12}
+              maxToRenderPerBatch={10}
+              windowSize={7}
+              removeClippedSubviews
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
+              onScrollToIndexFailed={(info) => {
+                listRef.current?.scrollToOffset({
+                  offset: Math.max(0, info.averageItemLength * info.index),
+                  animated: false,
+                });
+              }}
+              contentContainerStyle={{
+                paddingHorizontal: settings.reader.horizontalMargin,
+                paddingTop: 8,
+                paddingBottom: 28,
+                width: `${widthPercent}%`,
+                alignSelf: 'center',
+              }}
+              extraData={`${store.highlights.length}-${store.notes.length}-${store.bookmarks.length}-${settings.reader.fontSize}-${focusVerse}`}
+              ListHeaderComponent={
+                <Text style={[styles.chapterHeading, { color: colors.textMuted }]}>
+                  ምዕራፍ {chapter.chapter}
+                </Text>
+              }
+              ListEmptyComponent={
+                <Text style={{ color: colors.textMuted, padding: 24 }}>በዚህ ምዕራፍ ጥቅስ የለም።</Text>
+              }
+            />
+          </View>
+        </FlingGestureHandler>
+      </FlingGestureHandler>
 
       <AudioPlayerBar
         bookIndex={bookIndex}
@@ -443,41 +451,40 @@ export default function BibleScreen() {
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
+    paddingVertical: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
-  headerMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
-  bookTitle: { fontSize: 20, fontWeight: '800', flex: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  chapterChip: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, justifyContent: 'center' },
-  verseRow: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    marginBottom: 4,
-  },
-  focusedVerse: { borderWidth: 1, borderColor: '#1B6B3A33' },
-  markers: { flexDirection: 'row', gap: 6, marginTop: 4 },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-  },
-  navBtn: {
+  headerMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 },
+  bookTitle: { fontSize: 17, fontWeight: '600', flexShrink: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
+  iconBtn: {
     minHeight: 44,
-    minWidth: 96,
-    borderRadius: 10,
+    minWidth: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
   },
+  chapterHeading: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    marginBottom: 10,
+    marginTop: 8,
+  },
+  verseRow: {
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+  },
+  focusedVerse: {
+    borderLeftWidth: 2,
+    borderLeftColor: '#1B6B3A66',
+    paddingLeft: 8,
+  },
+  markers: { flexDirection: 'row', gap: 6, marginTop: 4 },
   error: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

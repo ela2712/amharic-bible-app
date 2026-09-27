@@ -63,8 +63,7 @@ export function StudyToolsModal({ verse, visible, onClose, onOpenRef }: Props) {
             ))
           ) : (
             <Text style={{ color: colors.textMuted, lineHeight: 24 }}>
-              የተያያዥ ጥቅስ መረጃ ገና አልተካተተም። ሐሰተኛ ማጣቀሻዎች አልተፈጠሩም። መረጃ ሲቀርብ
-              `src/services/crossReferenceService.ts` ላይ ይገናኛል።
+              የተያያዥ ጥቅስ መረጃ ገና አልተካተተም።
             </Text>
           )}
         </View>
@@ -74,7 +73,7 @@ export function StudyToolsModal({ verse, visible, onClose, onOpenRef }: Props) {
           <Text style={{ color: colors.textMuted, lineHeight: 24 }}>
             {hasStrongsData()
               ? 'የስትሮንግ መረጃ ዝግጁ ነው።'
-              : 'የዕብራይስጥ/ግሪክ Strong\'s መረጃ በዚህ ፕሮጀክት የለም። ትርጉሞች አልተፈጠሩም። መረጃ ሲቀርብ `src/services/strongsService.ts` ላይ ይገናኛል።'}
+              : 'የዕብራይስጥ/ግሪክ Strong\'s መረጃ በዚህ ስሪት የለም።'}
           </Text>
         </View>
       </SafeAreaView>
