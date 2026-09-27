@@ -1,8 +1,11 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
-import { DEFAULT_READER_SETTINGS } from '../types/user';
+import { readerTextStyle } from '../theme/typography';
+import { Segmented } from './ui';
+import { DEFAULT_READER_SETTINGS, READER_FONT_STYLE_OPTIONS, READER_LANGUAGE_OPTIONS } from '../types/user';
+import type { ReaderFontStyle, ReaderLanguage } from '../types/user';
 
 interface Props {
   visible: boolean;
@@ -63,6 +66,21 @@ export function ReaderSettingsModal({ visible, onClose }: Props) {
             <Text style={[styles.close, { color: colors.accent }]}>ተከናውኗል</Text>
           </Pressable>
         </View>
+        <ScrollView contentContainerStyle={styles.body}>
+        <Text style={[styles.label, { color: colors.text }]}>ቅርጸ-ቁምፊ</Text>
+        <Segmented
+          value={reader.fontStyle ?? 'sans'}
+          options={READER_FONT_STYLE_OPTIONS}
+          onChange={(fontStyle: ReaderFontStyle) => updateReader({ fontStyle })}
+        />
+        <Text
+          style={[
+            readerTextStyle(reader.fontSize, reader.lineHeight, colors.text, reader.fontStyle ?? 'sans'),
+            styles.preview,
+          ]}
+        >
+          በመጀመሪያ እግዚአብሔር ሰማይንና ምድርን ፈጠረ።
+        </Text>
         <Stepper
           label="የፊደል መጠን"
           value={reader.fontSize}
@@ -103,6 +121,12 @@ export function ReaderSettingsModal({ visible, onClose }: Props) {
           step={5}
           onChange={(readingWidth) => updateReader({ readingWidth })}
         />
+        <Text style={[styles.label, { color: colors.text }]}>ቋንቋ</Text>
+        <Segmented
+          value={reader.readerLanguage ?? 'am'}
+          options={READER_LANGUAGE_OPTIONS}
+          onChange={(readerLanguage: ReaderLanguage) => updateReader({ readerLanguage })}
+        />
         <Pressable
           onPress={() => updateReader({ showVerseNumbers: !reader.showVerseNumbers })}
           style={[styles.toggle, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -118,6 +142,7 @@ export function ReaderSettingsModal({ visible, onClose }: Props) {
         >
           <Text style={{ color: colors.text, fontWeight: '700' }}>ወደ ነባሪ መልስ</Text>
         </Pressable>
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
@@ -133,6 +158,8 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 22, fontWeight: '800' },
   close: { fontSize: 16, fontWeight: '700', minHeight: 44 },
+  body: { paddingBottom: 32 },
+  preview: { marginTop: 12, marginBottom: 20 },
   row: { marginBottom: 16 },
   label: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 12 },

@@ -7,9 +7,7 @@ import { formatReference } from '../data/bible';
 import { HIGHLIGHT_COLORS, HIGHLIGHT_LABELS } from '../theme/themes';
 import { useAppTheme } from '../theme/ThemeContext';
 import { useStudy } from '../context/StudyContext';
-import { copyVerse, shareVerse } from '../services/shareService';
-import { hasCrossReferences } from '../services/crossReferenceService';
-import { hasStrongsData } from '../services/strongsService';
+import { copyVerse, promptChapterShare, shareVerse } from '../services/shareService';
 
 const COLORS: HighlightColor[] = ['yellow', 'green', 'blue', 'orange', 'red', 'purple'];
 
@@ -31,7 +29,7 @@ export function VerseActionSheet({
   onOpenStudy,
 }: Props) {
   const colors = useAppTheme();
-  const { toggleBookmark, isBookmarked, setHighlight, getHighlight, getNote } = useStudy();
+  const { toggleBookmark, isBookmarked, setHighlight, getHighlight, getNote, settings } = useStudy();
 
   if (!verse) {
     return null;
@@ -112,27 +110,28 @@ export function VerseActionSheet({
               onCreateImage(verse);
             }}
           />
-          {hasCrossReferences() || hasStrongsData() ? (
-            <Action
-              icon="library-outline"
-              label="ጥናት"
-              onPress={() => {
-                onClose();
-                onOpenStudy(verse);
-              }}
-            />
-          ) : null}
+          <Action
+            icon="share-social-outline"
+            label="ምዕራፍ"
+            onPress={() => {
+              onClose();
+              promptChapterShare(verse.bookIndex, verse.chapterIndex, settings.reader.readerLanguage ?? 'am');
+            }}
+          />
+          <Action
+            icon="link-outline"
+            label="ተያያዥ"
+            onPress={() => {
+              onClose();
+              onOpenStudy(verse);
+            }}
+          />
         </View>
         {highlight ? (
           <Pressable onPress={() => run(() => setHighlight(verse, null))}>
             <Text style={[styles.remove, { color: colors.danger }]}>ምልክቱን አስወግድ</Text>
           </Pressable>
         ) : null}
-        {!hasCrossReferences() && !hasStrongsData() ? null : (
-          <Text style={[styles.hint, { color: colors.textMuted }]}>
-            የጥናት መሣሪያዎች ለዚህ ጥቅስ ይገኛሉ
-          </Text>
-        )}
       </View>
     </Modal>
   );

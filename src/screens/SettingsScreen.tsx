@@ -80,7 +80,11 @@ export default function SettingsScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => navigation.navigate('Plans')}
+          onPress={() =>
+            navigation.navigate('PlansTab', {
+              screen: 'PlansMain',
+            })
+          }
           style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
           accessibilityRole="button"
         >
@@ -116,7 +120,7 @@ export default function SettingsScreen() {
           ))}
         </View>
         <Text style={{ color: colors.textMuted, marginTop: 8, lineHeight: 22 }}>
-          የንባብ ፊደል መጠን፣ ክፍተት እና ህዳግ ከመጽሐፍ ቅዱስ ማያ ውስጥ የፊደል አዝራሩን በመጫን ይስተካከላሉ።
+          የንባብ ፊደል መጠን፣ ቅርጸ-ቁምፊ፣ ክፍተት እና ህዳግ ከመጽሐፍ ቅዱስ ማያ ውስጥ የፊደል አዝራሩን (Aa) በመጫን ይስተካከላሉ።
         </Text>
 
         <Text style={[styles.section, { color: colors.text }]}>ትርጉም</Text>
@@ -124,6 +128,9 @@ export default function SettingsScreen() {
           <Text style={{ color: colors.text, fontWeight: '700' }}>{translation.name}</Text>
           <Text style={{ color: colors.textMuted, marginTop: 6, lineHeight: 22 }}>
             ቋንቋ፦ {translation.language}
+          </Text>
+          <Text style={{ color: colors.textMuted, marginTop: 8, lineHeight: 22 }}>
+            በንባብ ማያ ላይ አማ / KJV / ግዕ ይቀይሩ። እንግሊዘኛው King James Version ነው፤ ከመሣሪያው ውስጥ ይሰራል እንጂ ኢንተርኔት አይፈልግም። የኢትዮጵያ ተጨማሪ መጻሕፍት በKJV ሙሉ አይደሉም። ግዕዝ ለአብዛኞቹ መጻሕፍት ተካትቷል።
           </Text>
         </View>
 

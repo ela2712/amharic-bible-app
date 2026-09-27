@@ -1,6 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { EMPTY_USER_STORE, type UserStore } from '../types/user';
+import { EMPTY_USER_STORE, type ReaderFontStyle, type ReaderLanguage, type UserStore } from '../types/user';
 import { STORAGE_KEYS } from './keys';
+
+const FONT_STYLES: ReaderFontStyle[] = ['sans', 'serif', 'medium', 'condensed'];
+
+function parseReaderLanguage(reader: Record<string, unknown> | undefined): ReaderLanguage {
+  if (reader?.readerLanguage === 'en' || reader?.readerLanguage === 'am' || reader?.readerLanguage === 'gez') {
+    return reader.readerLanguage;
+  }
+  if (reader?.showEnglish === true) {
+    return 'en';
+  }
+  return 'am';
+}
+function parseFontStyle(value: unknown): ReaderFontStyle | undefined {
+  return typeof value === 'string' && FONT_STYLES.includes(value as ReaderFontStyle)
+    ? (value as ReaderFontStyle)
+    : undefined;
+}
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -46,6 +63,17 @@ function migrateStore(raw: unknown): UserStore {
         ...(isObject(raw.settings) && isObject(raw.settings.reader)
           ? raw.settings.reader
           : {}),
+        fontStyle:
+          parseFontStyle(
+            isObject(raw.settings) && isObject(raw.settings.reader)
+              ? raw.settings.reader.fontStyle
+              : undefined,
+          ) ?? EMPTY_USER_STORE.settings.reader.fontStyle,
+        readerLanguage: parseReaderLanguage(
+          isObject(raw.settings) && isObject(raw.settings.reader)
+            ? raw.settings.reader
+            : undefined,
+        ),
       },
     },
     searchHistory: Array.isArray(raw.searchHistory)

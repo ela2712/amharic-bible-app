@@ -2,6 +2,8 @@ import type { ReadingHistoryEntry, ReadingPosition, VerseRef } from './bible';
 
 export type ThemeName = 'light' | 'dark' | 'sepia' | 'amoled';
 
+export type ReaderFontStyle = 'sans' | 'serif' | 'medium' | 'condensed';
+
 export type HighlightColor =
   | 'yellow'
   | 'green'
@@ -44,6 +46,8 @@ export interface VerseNote {
   updatedAt: string;
 }
 
+export type ReaderLanguage = 'am' | 'en' | 'gez';
+
 export interface ReaderSettings {
   fontSize: number;
   lineHeight: number;
@@ -51,6 +55,8 @@ export interface ReaderSettings {
   verseNumberSize: number;
   readingWidth: number;
   showVerseNumbers: boolean;
+  fontStyle: ReaderFontStyle;
+  readerLanguage: ReaderLanguage;
 }
 
 export interface AppSettings {
@@ -84,7 +90,22 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   verseNumberSize: 16,
   readingWidth: 100,
   showVerseNumbers: true,
+  fontStyle: 'sans',
+  readerLanguage: 'am',
 };
+
+export const READER_LANGUAGE_OPTIONS: Array<{ id: ReaderLanguage; label: string }> = [
+  { id: 'am', label: 'አማርኛ' },
+  { id: 'en', label: 'KJV' },
+  { id: 'gez', label: 'ግዕዝ' },
+];
+
+export const READER_FONT_STYLE_OPTIONS: Array<{ id: ReaderFontStyle; label: string }> = [
+  { id: 'sans', label: 'ሳንስ' },
+  { id: 'serif', label: 'ሴሪፍ' },
+  { id: 'medium', label: 'ወፍራም' },
+  { id: 'condensed', label: 'ቀጭን' },
+];
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'light',

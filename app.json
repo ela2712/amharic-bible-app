@@ -48,6 +48,12 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "የጥቅስ ምስል ዳራ ከስልክ ለመምረጥ የምስል መዳረሻ ያስፈልጋል።"
+        }
+      ],
       "expo-asset",
       "expo-sharing",
       "expo-status-bar",

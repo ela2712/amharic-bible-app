@@ -1,40 +1,87 @@
 import { useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ImageSourcePropType,
+  type TextStyle,
+} from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { captureRef } from 'react-native-view-shot';
+import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import { Screen } from '../components/Screen';
-import { getVerse, formatReference } from '../data/bible';
+import { getVerse } from '../data/bible';
+import {
+  PHOTO_BACKGROUNDS,
+  SOLID_BACKGROUNDS,
+  type PhotoBackgroundId,
+  type SolidBackgroundId,
+} from '../data/verseBackgrounds';
 import { useAppTheme } from '../theme/ThemeContext';
+import { readerTextStyle } from '../theme/typography';
 import type { BibleStackParamList } from '../types/navigation';
-
-const BACKGROUNDS = [
-  { id: 'emerald', bg: '#0F3D2E', fg: '#F4FFF7', name: 'አረንጓዴ' },
-  { id: 'gold', bg: '#3D2E0F', fg: '#FFF6D8', name: 'ወርቅ' },
-  { id: 'midnight', bg: '#12141C', fg: '#EEF2FF', name: 'ምሽት' },
-  { id: 'parchment', bg: '#F4E6C3', fg: '#3B2A14', name: 'ብራና' },
-  { id: 'dawn', bg: '#D7ECF5', fg: '#16324A', name: 'ንጋት' },
-  { id: 'crimson', bg: '#4A1518', fg: '#FFE8E8', name: 'ቀይ' },
-] as const;
+import type { VerseLocation } from '../types/bible';
 
 type Align = 'left' | 'center' | 'right';
+type BackgroundChoice =
+  | { kind: 'solid'; id: SolidBackgroundId }
+  | { kind: 'builtin'; id: PhotoBackgroundId }
+  | { kind: 'custom' };
+
+function imageReference(verse: VerseLocation): string {
+  const end =
+    typeof verse.verseEnd === 'number' && verse.verseEnd !== verse.verseNumber
+      ? `–${verse.verseEnd}`
+      : '';
+  return `${verse.bookTitle} ${verse.chapterNumber} : ${verse.verseNumber}${end}`;
+}
 
 export default function VerseImageScreen() {
   const colors = useAppTheme();
   const route = useRoute<RouteProp<BibleStackParamList, 'VerseImage'>>();
   const verse = getVerse(route.params);
   const cardRef = useRef<View>(null);
-  const [bgId, setBgId] = useState<(typeof BACKGROUNDS)[number]['id']>('emerald');
+  const [choice, setChoice] = useState<BackgroundChoice>({ kind: 'builtin', id: 'cross' });
+  const [customUri, setCustomUri] = useState<string | null>(null);
   const [align, setAlign] = useState<Align>('center');
   const [fontSize, setFontSize] = useState(26);
   const [busy, setBusy] = useState(false);
 
-  const palette = useMemo(
-    () => BACKGROUNDS.find((item) => item.id === bgId) ?? BACKGROUNDS[0],
-    [bgId],
+  const solid = useMemo(
+    () =>
+      choice.kind === 'solid'
+        ? (SOLID_BACKGROUNDS.find((item) => item.id === choice.id) ?? SOLID_BACKGROUNDS[0])
+        : null,
+    [choice],
   );
+  const builtin = useMemo(
+    () =>
+      choice.kind === 'builtin'
+        ? (PHOTO_BACKGROUNDS.find((item) => item.id === choice.id) ?? PHOTO_BACKGROUNDS[0])
+        : null,
+    [choice],
+  );
+
+  const imageSource: ImageSourcePropType | null = useMemo(() => {
+    if (choice.kind === 'custom' && customUri) {
+      return { uri: customUri };
+    }
+    if (builtin) {
+      return builtin.source;
+    }
+    return null;
+  }, [builtin, choice.kind, customUri]);
+
+  const onPhoto = Boolean(imageSource);
+  const textColor = onPhoto ? '#FFE34A' : (solid?.fg ?? '#F4FFF7');
 
   if (!verse) {
     return (
@@ -45,6 +92,33 @@ export default function VerseImageScreen() {
       </Screen>
     );
   }
+
+  const pickPhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('ፍቃድ', 'ዳራ ምስል ለመምረጥ የምስል መዳረሻ ያስፈልጋል።');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+      });
+      if (result.canceled) {
+        return;
+      }
+      const uri = result.assets[0]?.uri;
+      if (!uri) {
+        return;
+      }
+      setCustomUri(uri);
+      setChoice({ kind: 'custom' });
+    } catch {
+      Alert.alert('ስህተት', 'ምስሉ ከስልኩ ሊመረጥ አልቻለም።');
+    }
+  };
 
   const capture = async () => {
     if (!cardRef.current) {
@@ -87,6 +161,24 @@ export default function VerseImageScreen() {
     }
   };
 
+  const verseStyle: TextStyle = {
+    ...readerTextStyle(fontSize, 1.55, textColor, 'sans'),
+    fontWeight: '800',
+    textAlign: align,
+    ...(onPhoto
+      ? {
+          textShadowColor: '#000000',
+          textShadowOffset: { width: 0, height: 1 },
+          textShadowRadius: 4,
+        }
+      : null),
+  };
+  const refStyle: TextStyle = {
+    ...readerTextStyle(16, 1.3, onPhoto ? '#F7F3EA' : textColor, 'sans'),
+    fontWeight: '800',
+    textAlign: 'center',
+  };
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
@@ -94,34 +186,86 @@ export default function VerseImageScreen() {
         <View
           ref={cardRef}
           collapsable={false}
-          style={[styles.card, { backgroundColor: palette.bg }]}
+          style={[styles.card, { backgroundColor: solid?.bg ?? '#111' }]}
         >
-          <Text style={[styles.ornament, { color: palette.fg }]}>+</Text>
-          <Text
-            style={[
-              styles.verse,
-              { color: palette.fg, fontSize, lineHeight: fontSize * 1.7, textAlign: align },
-            ]}
-          >
-            {verse.text}
-          </Text>
-          <Text style={[styles.ref, { color: palette.fg, textAlign: align }]}>
-            {formatReference(verse)}
-          </Text>
+          {imageSource ? (
+            <Image source={imageSource} style={styles.photoFill} resizeMode="cover" />
+          ) : null}
+          {onPhoto ? <View style={styles.photoScrim} pointerEvents="none" /> : null}
+          <View style={styles.cardBody} pointerEvents="none">
+            <Text style={verseStyle}>{verse.text}</Text>
+          </View>
+          <View style={onPhoto ? styles.refBar : styles.refPlain}>
+            <Text style={refStyle}>{imageReference(verse)}</Text>
+          </View>
         </View>
 
-        <Text style={[styles.label, { color: colors.text }]}>መደብ</Text>
+        <Text style={[styles.label, { color: colors.text }]}>ቀለም</Text>
         <View style={styles.row}>
-          {BACKGROUNDS.map((item) => (
+          {SOLID_BACKGROUNDS.map((item) => (
             <Pressable
               key={item.id}
-              onPress={() => setBgId(item.id)}
+              onPress={() => setChoice({ kind: 'solid', id: item.id })}
+              accessibilityRole="button"
+              accessibilityLabel={item.name}
               style={[
                 styles.swatch,
-                { backgroundColor: item.bg, borderColor: bgId === item.id ? colors.accent : colors.border },
+                {
+                  backgroundColor: item.bg,
+                  borderColor:
+                    choice.kind === 'solid' && choice.id === item.id ? colors.accent : colors.border,
+                },
               ]}
             />
           ))}
+        </View>
+
+        <Text style={[styles.label, { color: colors.text }]}>ምስል</Text>
+        <View style={styles.row}>
+          {PHOTO_BACKGROUNDS.map((item) => (
+            <Pressable
+              key={item.id}
+              onPress={() => setChoice({ kind: 'builtin', id: item.id })}
+              accessibilityRole="button"
+              accessibilityLabel={item.name}
+              style={[
+                styles.photoSwatch,
+                {
+                  borderColor:
+                    choice.kind === 'builtin' && choice.id === item.id
+                      ? colors.accent
+                      : colors.border,
+                },
+              ]}
+            >
+              <Image source={item.source} style={styles.swatchPhoto} />
+            </Pressable>
+          ))}
+          {customUri ? (
+            <Pressable
+              onPress={() => setChoice({ kind: 'custom' })}
+              accessibilityRole="button"
+              accessibilityLabel="የተመረጠ ምስል"
+              style={[
+                styles.photoSwatch,
+                { borderColor: choice.kind === 'custom' ? colors.accent : colors.border },
+              ]}
+            >
+              <Image source={{ uri: customUri }} style={styles.swatchPhoto} />
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={pickPhoto}
+            accessibilityRole="button"
+            accessibilityLabel="ከስልክ ምስል ጨምር"
+            style={[
+              styles.photoSwatch,
+              styles.addSwatch,
+              { borderColor: colors.border, backgroundColor: colors.surfaceMuted },
+            ]}
+          >
+            <Ionicons name="add" size={26} color={colors.text} />
+          </Pressable>
         </View>
 
         <Text style={[styles.label, { color: colors.text }]}>አቀማመጥ</Text>
@@ -164,7 +308,7 @@ export default function VerseImageScreen() {
           style={[styles.button, { backgroundColor: colors.accent }]}
         >
           <Text style={{ color: colors.accentText, fontWeight: '800' }}>
-            {busy ? 'እየሰራ...' : 'ምስል አስቀምጥ'}
+            {busy ? 'እየሰራ...' : 'ምስል አስቀመጥ'}
           </Text>
         </Pressable>
         <Pressable
@@ -184,17 +328,59 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '800', marginBottom: 12 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   card: {
-    minHeight: 320,
-    borderRadius: 24,
-    padding: 28,
-    justifyContent: 'center',
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  ornament: { textAlign: 'center', fontSize: 22, marginBottom: 16, opacity: 0.7 },
-  verse: { fontWeight: '600' },
-  ref: { marginTop: 20, fontWeight: '800', opacity: 0.9 },
+  photoFill: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  photoScrim: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(8, 6, 4, 0.22)',
+  },
+  cardBody: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 28,
+    paddingBottom: 56,
+  },
+  refBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.48)',
+  },
+  refPlain: {
+    paddingBottom: 18,
+    paddingHorizontal: 16,
+  },
   label: { marginTop: 18, marginBottom: 8, fontWeight: '800' },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   swatch: { width: 42, height: 42, borderRadius: 21, borderWidth: 3 },
+  photoSwatch: {
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+    borderWidth: 3,
+    overflow: 'hidden',
+  },
+  addSwatch: { alignItems: 'center', justifyContent: 'center' },
+  swatchPhoto: { width: '100%', height: '100%' },
   chip: { minHeight: 40, paddingHorizontal: 14, borderRadius: 12, justifyContent: 'center' },
   button: {
     minHeight: 48,

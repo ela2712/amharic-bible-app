@@ -1,6 +1,6 @@
 import type { SearchHit } from '../types/study';
 import type { Testament } from '../types/bible';
-import { bible, getTestament } from '../data/bible';
+import { bible, getTestament, printedVerseNumber } from '../data/bible';
 import { normalizeAmharic } from '../utils/amharic';
 
 interface IndexedVerse {
@@ -32,7 +32,7 @@ function buildIndex(): IndexedVerse[] {
           verseIndex,
           bookTitle: book.title,
           chapterNumber: chapter.chapter,
-          verseNumber: verseIndex + 1,
+          verseNumber: printedVerseNumber(chapter, verseIndex),
           text,
           normalized: normalizeAmharic(text),
           testament,

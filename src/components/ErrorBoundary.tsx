@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<Props, State> {
     }
     return (
       <View style={styles.wrap}>
-        <Text style={styles.title}>Something went wrong</Text>
+        <Text style={styles.title}>መጽሐፉ ሊከፈት አልቻለም</Text>
         <Text style={styles.message}>{this.state.error.message}</Text>
         <Pressable
           onPress={() => this.setState({ error: null })}

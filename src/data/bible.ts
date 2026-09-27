@@ -12,22 +12,37 @@ import type {
   VerseRef,
 } from '../types/bible';
 
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+function parseNumberArray(value: unknown, length: number): number[] | undefined {
+  if (!Array.isArray(value) || value.length !== length) {
+    return undefined;
+  }
+  const numbers = value.map((item) => Number(item));
+  if (numbers.some((item) => !Number.isFinite(item))) {
+    return undefined;
+  }
+  return numbers;
 }
 
-function parseChapter(raw: unknown): BibleChapter | null {
+function parseChapter(raw: unknown, fallbackNumber: number): BibleChapter | null {
   if (!raw || typeof raw !== 'object') {
     return null;
   }
   const chapter = raw as Record<string, unknown>;
-  if (typeof chapter.chapter !== 'string' || !isStringArray(chapter.verses)) {
+  if (!Array.isArray(chapter.verses)) {
     return null;
   }
+  const verses = chapter.verses.map((item) => (item == null ? '' : String(item)));
+  const numeric =
+    typeof chapter.chapter === 'number' && Number.isFinite(chapter.chapter)
+      ? String(chapter.chapter)
+      : typeof chapter.chapter === 'string' && /^[0-9]+$/.test(chapter.chapter)
+        ? chapter.chapter
+        : String(fallbackNumber);
   return {
-    chapter: chapter.chapter,
+    chapter: numeric,
     title: typeof chapter.title === 'string' ? chapter.title : '',
-    verses: chapter.verses,
+    verses,
+    verseNumbers: parseNumberArray(chapter.verseNumbers, verses.length),
   };
 }
 
@@ -40,7 +55,7 @@ function parseBook(raw: unknown): BibleBook | null {
     return null;
   }
   const chapters = book.chapters
-    .map(parseChapter)
+    .map((item, index) => parseChapter(item, index + 1))
     .filter((item): item is BibleChapter => item !== null);
   if (chapters.length === 0) {
     return null;
@@ -48,6 +63,8 @@ function parseBook(raw: unknown): BibleBook | null {
   return {
     title: book.title,
     abbv: typeof book.abbv === 'string' ? book.abbv : '',
+    englishTitle: typeof book.englishTitle === 'string' ? book.englishTitle : undefined,
+    testament: book.testament === 'nt' || book.testament === 'ot' ? book.testament : undefined,
     chapters,
   };
 }
@@ -89,9 +106,8 @@ function resolveAssetModule(mod: unknown): Parameters<typeof Asset.fromModule>[0
   throw new Error('Bible asset module is invalid.');
 }
 
-async function readPackedBible(): Promise<unknown> {
-  const { packedBible } = await import('./bibleAsset');
-  const asset = Asset.fromModule(resolveAssetModule(packedBible));
+async function readAssetJson(mod: unknown): Promise<unknown> {
+  const asset = Asset.fromModule(resolveAssetModule(mod));
   await asset.downloadAsync();
   const uri = asset.localUri ?? asset.uri;
   if (!uri) {
@@ -107,6 +123,22 @@ async function readPackedBible(): Promise<unknown> {
   }
   const raw = await FileSystem.readAsStringAsync(uri);
   return JSON.parse(raw);
+}
+
+async function readPackedBible(): Promise<unknown> {
+  const { packedBibleChunks } = await import('./bibleChunks');
+  const books: unknown[] = [];
+  for (const chunk of packedBibleChunks) {
+    const parsed = await readAssetJson(chunk);
+    if (!Array.isArray(parsed)) {
+      throw new Error('Bible chunk is invalid.');
+    }
+    books.push(...parsed);
+  }
+  return {
+    title: 'ሠማንያ ወአሐዱ',
+    books,
+  };
 }
 
 export async function loadBible(): Promise<BibleDataset> {
@@ -149,30 +181,30 @@ export const bible: BibleDataset = {
 };
 
 export const AMHARIC_TRANSLATION: Translation = {
-  id: 'amharic-1962',
-  name: 'መጽሐፍ ቅዱስ',
+  id: 'amharic-eotc-81',
+  name: 'ሠማንያ ወአሐዱ',
   language: 'am',
   get books() {
     return requireBible().books;
   },
 };
 
-const OT_COUNT = 39;
-
 const GROUP_RANGES: Array<{ group: BookGroupId; start: number; end: number }> = [
   { group: 'law', start: 0, end: 4 },
-  { group: 'history', start: 5, end: 16 },
-  { group: 'wisdom', start: 17, end: 21 },
-  { group: 'prophets', start: 22, end: 38 },
-  { group: 'gospels', start: 39, end: 42 },
-  { group: 'acts', start: 43, end: 43 },
-  { group: 'letters', start: 44, end: 64 },
-  { group: 'revelation', start: 65, end: 65 },
+  { group: 'history', start: 5, end: 13 },
+  { group: 'narrow', start: 14, end: 25 },
+  { group: 'wisdom', start: 26, end: 33 },
+  { group: 'prophets', start: 34, end: 53 },
+  { group: 'gospels', start: 54, end: 57 },
+  { group: 'acts', start: 58, end: 58 },
+  { group: 'letters', start: 59, end: 79 },
+  { group: 'revelation', start: 80, end: 80 },
 ];
 
 export const BOOK_GROUP_LABELS: Record<BookGroupId, string> = {
   law: 'ኦሪት',
   history: 'ታሪክ',
+  narrow: 'ተጨማሪ ብሉይ',
   wisdom: 'ጥበብ',
   prophets: 'ትንቢት',
   gospels: 'ወንጌላት',
@@ -182,7 +214,7 @@ export const BOOK_GROUP_LABELS: Record<BookGroupId, string> = {
 };
 
 export function getTestament(bookIndex: number): Testament {
-  return bookIndex < OT_COUNT ? 'ot' : 'nt';
+  return getBook(bookIndex)?.testament ?? (bookIndex < 54 ? 'ot' : 'nt');
 }
 
 export function getBookGroup(bookIndex: number): BookGroupId {
@@ -207,6 +239,10 @@ export function getChapter(
   return getBook(bookIndex)?.chapters[chapterIndex] ?? null;
 }
 
+export function printedVerseNumber(chapter: BibleChapter, verseIndex: number): number {
+  return chapter.verseNumbers?.[verseIndex] ?? verseIndex + 1;
+}
+
 export function getVerse(ref: VerseRef): VerseLocation | null {
   const book = getBook(ref.bookIndex);
   const chapter = book?.chapters[ref.chapterIndex];
@@ -218,13 +254,99 @@ export function getVerse(ref: VerseRef): VerseLocation | null {
     ...ref,
     bookTitle: book.title,
     chapterNumber: chapter.chapter,
-    verseNumber: ref.verseIndex + 1,
+    verseNumber: printedVerseNumber(chapter, ref.verseIndex),
     text,
   };
 }
 
-export function formatReference(location: Pick<VerseLocation, 'bookTitle' | 'chapterNumber' | 'verseNumber'>): string {
-  return `${location.bookTitle} ${location.chapterNumber}:${location.verseNumber}`;
+export function formatReference(
+  location: Pick<VerseLocation, 'bookTitle' | 'chapterNumber' | 'verseNumber' | 'verseEnd'>,
+): string {
+  const end = location.verseEnd;
+  const range =
+    typeof end === 'number' && end !== location.verseNumber
+      ? `${location.verseNumber}–${end}`
+      : String(location.verseNumber);
+  return `${location.bookTitle} ${location.chapterNumber}:${range}`;
+}
+
+export interface DisplayVerse {
+  verseIndex: number;
+  fromIndex: number;
+  toIndex: number;
+  start: number;
+  end: number;
+  text: string;
+}
+
+function compactAmharic(value: string): string {
+  return value.replace(/[“”"'()\s።፤፡፣፥·?؟]/g, '');
+}
+
+function preferredVerseText(a: string, b: string): string {
+  return b.trim().length >= a.trim().length ? b : a;
+}
+
+export function versesShouldCombine(first: string, second: string): boolean {
+  const a = String(first ?? '').trim();
+  const b = String(second ?? '').trim();
+  if (!a || !b) {
+    return true;
+  }
+  const ca = compactAmharic(a);
+  const cb = compactAmharic(b);
+  if (!ca || !cb) {
+    return true;
+  }
+  const shorter = ca.length <= cb.length ? ca : cb;
+  const longer = ca.length > cb.length ? ca : cb;
+  const isProperPrefix =
+    longer.startsWith(shorter) &&
+    shorter.length >= 2 &&
+    shorter.length < longer.length &&
+    (shorter.length <= 32 || shorter.length / longer.length <= 0.72);
+  if (isProperPrefix) {
+    return true;
+  }
+  if (longer.length >= 40 && shorter.length / longer.length >= 0.88 && longer.includes(shorter)) {
+    return true;
+  }
+  return false;
+}
+
+export function getDisplayVerses(chapter: BibleChapter): DisplayVerse[] {
+  const rows: DisplayVerse[] = [];
+  chapter.verses.forEach((text, verseIndex) => {
+    const n = printedVerseNumber(chapter, verseIndex);
+    const clean = String(text ?? '').trim();
+    const previous = rows[rows.length - 1];
+    if (previous && versesShouldCombine(previous.text, clean)) {
+      const keepNext = clean.length >= previous.text.length;
+      previous.end = n;
+      previous.toIndex = verseIndex;
+      previous.text = preferredVerseText(previous.text, clean);
+      if (keepNext) {
+        previous.verseIndex = verseIndex;
+      }
+      return;
+    }
+    if (!clean) {
+      if (previous) {
+        previous.end = n;
+        previous.toIndex = verseIndex;
+      }
+      return;
+    }
+    rows.push({
+      verseIndex,
+      fromIndex: verseIndex,
+      toIndex: verseIndex,
+      start: n,
+      end: n,
+      text: clean,
+    });
+  });
+  return rows;
 }
 
 export function getBookMetas(): BookMeta[] {

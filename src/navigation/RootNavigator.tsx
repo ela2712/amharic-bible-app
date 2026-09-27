@@ -14,6 +14,7 @@ import { useAppTheme } from '../theme/ThemeContext';
 import { useStudy } from '../context/StudyContext';
 import type {
   BibleStackParamList,
+  PlansStackParamList,
   RootTabParamList,
   SavedStackParamList,
   SearchStackParamList,
@@ -23,6 +24,7 @@ import type {
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const BibleStack = createNativeStackNavigator<BibleStackParamList>();
 const SearchStack = createNativeStackNavigator<SearchStackParamList>();
+const PlansStack = createNativeStackNavigator<PlansStackParamList>();
 const SavedStack = createNativeStackNavigator<SavedStackParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -59,6 +61,23 @@ function SearchStackNavigator() {
   );
 }
 
+function PlansStackNavigator() {
+  const colors = useAppTheme();
+  return (
+    <PlansStack.Navigator
+      screenOptions={{
+        headerTintColor: colors.accent,
+        headerStyle: { backgroundColor: colors.header },
+        headerTitleStyle: { color: colors.text },
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <PlansStack.Screen name="PlansMain" component={PlansScreen} options={{ headerShown: false }} />
+      <PlansStack.Screen name="PlanDetail" component={PlanDetailScreen} options={{ title: 'ዕቅድ' }} />
+    </PlansStack.Navigator>
+  );
+}
+
 function SavedStackNavigator() {
   return (
     <SavedStack.Navigator screenOptions={{ headerShown: false }}>
@@ -68,23 +87,9 @@ function SavedStackNavigator() {
 }
 
 function SettingsStackNavigator() {
-  const colors = useAppTheme();
   return (
-    <SettingsStack.Navigator
-      screenOptions={{
-        headerTintColor: colors.accent,
-        headerStyle: { backgroundColor: colors.header },
-        headerTitleStyle: { color: colors.text },
-        contentStyle: { backgroundColor: colors.background },
-      }}
-    >
-      <SettingsStack.Screen
-        name="SettingsMain"
-        component={SettingsScreen}
-        options={{ headerShown: false }}
-      />
-      <SettingsStack.Screen name="Plans" component={PlansScreen} options={{ title: 'የንባብ ዕቅዶች' }} />
-      <SettingsStack.Screen name="PlanDetail" component={PlanDetailScreen} options={{ title: 'ዕቅድ' }} />
+    <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
+      <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
     </SettingsStack.Navigator>
   );
 }
@@ -130,6 +135,7 @@ export function RootNavigator() {
             const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
               BibleTab: focused ? 'book' : 'book-outline',
               SearchTab: focused ? 'search' : 'search-outline',
+              PlansTab: focused ? 'calendar' : 'calendar-outline',
               SavedTab: focused ? 'bookmark' : 'bookmark-outline',
               SettingsTab: focused ? 'ellipsis-horizontal' : 'ellipsis-horizontal-outline',
             };
@@ -146,6 +152,11 @@ export function RootNavigator() {
           name="SearchTab"
           component={SearchStackNavigator}
           options={{ title: 'ፍለጋ', tabBarAccessibilityLabel: 'ፍለጋ' }}
+        />
+        <Tab.Screen
+          name="PlansTab"
+          component={PlansStackNavigator}
+          options={{ title: 'ዕቅድ', tabBarAccessibilityLabel: 'የንባብ ዕቅዶች' }}
         />
         <Tab.Screen
           name="SavedTab"

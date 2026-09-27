@@ -35,7 +35,7 @@ export function ChapterSelectorModal({
         <ScrollView contentContainerStyle={styles.grid}>
           {(book?.chapters ?? []).map((chapter, index) => (
             <Pressable
-              key={chapter.chapter}
+              key={index}
               onPress={() => {
                 onSelect(index);
                 onClose();

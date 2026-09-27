@@ -1,12 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
-  type ListRenderItem,
-  type ViewToken,
+  type GestureResponderEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { Directions, FlingGestureHandler, State } from 'react-native-gesture-handler';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -18,24 +19,68 @@ import { ChapterSelectorModal } from '../components/ChapterSelectorModal';
 import { VerseActionSheet } from '../components/VerseActionSheet';
 import { NoteEditorModal } from '../components/NoteEditorModal';
 import { ReaderSettingsModal } from '../components/ReaderSettingsModal';
-import { AudioPlayerBar } from '../components/AudioPlayerBar';
 import { StudyToolsModal } from '../components/StudyToolsModal';
 import {
   getAdjacentChapter,
   getBook,
   getChapter,
+  getDisplayVerses,
   getVerse,
 } from '../data/bible';
-import { getDailyVerse } from '../services/dailyVerseService';
+import { ensureEnglishBible, getEnglishForDisplay, hasEnglishBook } from '../data/english';
+import { ensureGeezBible, getGeezForDisplay, hasGeezBook } from '../data/geez';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
 import { HIGHLIGHT_COLORS } from '../theme/themes';
 import { readerTextStyle } from '../theme/typography';
+import { promptChapterShare } from '../services/shareService';
 import type { BibleStackParamList, BibleReaderRoute } from '../types/navigation';
 import type { VerseLocation } from '../types/bible';
+import type { ReaderFontStyle, ThemeName } from '../types/user';
+
+const FONT_SIZE_MIN = 16;
+const FONT_SIZE_MAX = 36;
+const THEME_CYCLE: ThemeName[] = ['light', 'sepia', 'dark', 'amoled'];
+
+function clampFontSize(value: number): number {
+  return Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(value)));
+}
+
+function nextTheme(current: ThemeName): ThemeName {
+  const index = THEME_CYCLE.indexOf(current);
+  return THEME_CYCLE[(index + 1) % THEME_CYCLE.length];
+}
+
+function themeIcon(theme: ThemeName): 'sunny-outline' | 'sunny' | 'moon-outline' | 'moon' {
+  if (theme === 'sepia') {
+    return 'sunny';
+  }
+  if (theme === 'dark') {
+    return 'moon-outline';
+  }
+  if (theme === 'amoled') {
+    return 'moon';
+  }
+  return 'sunny-outline';
+}
+
+function twoFingerDistance(event: GestureResponderEvent): number | null {
+  const touches = event.nativeEvent.touches;
+  if (touches.length < 2) {
+    return null;
+  }
+  return Math.hypot(
+    touches[0].pageX - touches[1].pageX,
+    touches[0].pageY - touches[1].pageY,
+  );
+}
 
 interface VerseRowData {
-  index: number;
+  verseIndex: number;
+  fromIndex: number;
+  toIndex: number;
+  start: number;
+  end: number;
   text: string;
 }
 
@@ -60,59 +105,79 @@ const VerseRow = memo(function VerseRow({
   lineHeight,
   verseNumberSize,
   showVerseNumbers,
+  fontStyle,
   highlightColor,
   hasNote,
   isBookmarked,
   isFocused,
   textColor,
   numberColor,
+  displayText,
+  englishTypography,
   onOpen,
+  onLayoutY,
 }: {
   item: VerseRowData;
   fontSize: number;
   lineHeight: number;
   verseNumberSize: number;
   showVerseNumbers: boolean;
+  fontStyle: ReaderFontStyle;
   highlightColor?: string;
   hasNote: boolean;
   isBookmarked: boolean;
   isFocused: boolean;
   textColor: string;
   numberColor: string;
-  onOpen: (verseIndex: number) => void;
+  displayText: string;
+  englishTypography: boolean;
+  onOpen: (item: VerseRowData) => void;
+  onLayoutY: (fromIndex: number, toIndex: number, y: number) => void;
 }) {
+  const body = englishTypography
+    ? {
+        fontSize,
+        lineHeight: Math.round(fontSize * lineHeight),
+        color: textColor,
+      }
+    : readerTextStyle(fontSize, lineHeight, textColor, fontStyle);
   return (
     <Pressable
-      onLongPress={() => onOpen(item.index)}
-      onPress={() => onOpen(item.index)}
+      onLayout={(event) => onLayoutY(item.fromIndex, item.toIndex, event.nativeEvent.layout.y)}
+      onLongPress={() => onOpen(item)}
+      onPress={() => onOpen(item)}
       accessibilityRole="button"
-      accessibilityLabel={`ጥቅስ ${item.index + 1}. ${item.text}`}
+      accessibilityLabel={`ጥቅስ ${item.start === item.end ? item.start : `${item.start} እስከ ${item.end}`}. ${displayText}`}
       style={[
         styles.verseRow,
         highlightColor ? { backgroundColor: highlightColor } : null,
         isFocused ? styles.focusedVerse : null,
       ]}
     >
-      <Text style={readerTextStyle(fontSize, lineHeight, textColor)}>
-        {showVerseNumbers ? (
-          <Text
-            style={{
+      {showVerseNumbers ? (
+        <Text
+          style={[
+            body,
+            {
               fontSize: Math.max(11, verseNumberSize - 2),
-              fontWeight: '600',
+              lineHeight: Math.round(fontSize * lineHeight),
               color: numberColor,
-            }}
-          >
-            {item.index + 1}{' '}
-          </Text>
-        ) : null}
-        {item.text}
-      </Text>
-      {hasNote || isBookmarked ? (
-        <View style={styles.markers}>
-          {isBookmarked ? <Ionicons name="bookmark" size={14} color={numberColor} /> : null}
-          {hasNote ? <Ionicons name="create" size={14} color={numberColor} /> : null}
-        </View>
+              width: item.start === item.end ? 28 : 52,
+            },
+          ]}
+        >
+          {item.start === item.end ? item.start : `${item.start}–${item.end}`}
+        </Text>
       ) : null}
+      <View style={styles.verseBody}>
+        <Text style={body}>{displayText}</Text>
+        {hasNote || isBookmarked ? (
+          <View style={styles.markers}>
+            {isBookmarked ? <Ionicons name="bookmark" size={14} color={numberColor} /> : null}
+            {hasNote ? <Ionicons name="create" size={14} color={numberColor} /> : null}
+          </View>
+        ) : null}
+      </View>
     </Pressable>
   );
 });
@@ -125,6 +190,8 @@ export default function BibleScreen() {
     ready,
     store,
     settings,
+    setTheme,
+    updateReader,
     setReadingPosition,
     addHistory,
     getHighlight,
@@ -141,10 +208,17 @@ export default function BibleScreen() {
   const [activeVerse, setActiveVerse] = useState<VerseLocation | null>(null);
   const [noteVerse, setNoteVerse] = useState<VerseLocation | null>(null);
   const [studyVerse, setStudyVerse] = useState<VerseLocation | null>(null);
-  const listRef = useRef<FlatList<VerseRowData>>(null);
+  const [englishEpoch, setEnglishEpoch] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const verseOffsets = useRef<number[]>([]);
   const restoredRef = useRef(false);
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchBaseRef = useRef(settings.reader.fontSize);
+  const lastEmittedSizeRef = useRef(settings.reader.fontSize);
   const locationRef = useRef({ bookIndex: 0, chapterIndex: 0 });
+  const [liveFontSize, setLiveFontSize] = useState<number | null>(null);
   locationRef.current = { bookIndex, chapterIndex };
+  const fontSize = liveFontSize ?? settings.reader.fontSize;
 
   const applyLocation = useCallback(
     (nextBook: number, nextChapter: number, nextVerse = 0) => {
@@ -183,9 +257,32 @@ export default function BibleScreen() {
   const book = getBook(bookIndex);
   const chapter = getChapter(bookIndex, chapterIndex);
   const verses: VerseRowData[] = useMemo(
-    () => (chapter?.verses ?? []).map((text, index) => ({ index, text })),
+    () => (chapter ? getDisplayVerses(chapter) : []),
     [chapter],
   );
+  const readerLanguage = settings.reader.readerLanguage ?? 'am';
+
+  useEffect(() => {
+    if (readerLanguage === 'am') {
+      return;
+    }
+    let cancelled = false;
+    const load = readerLanguage === 'gez' ? ensureGeezBible() : ensureEnglishBible();
+    load
+      .then(() => {
+        if (!cancelled) {
+          setEnglishEpoch((value) => value + 1);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [readerLanguage]);
+
+  useEffect(() => {
+    verseOffsets.current = [];
+  }, [bookIndex, chapterIndex]);
 
   useEffect(() => {
     if (!book || !chapter) {
@@ -211,40 +308,60 @@ export default function BibleScreen() {
       return;
     }
     const handle = setTimeout(() => {
-      try {
-        listRef.current?.scrollToIndex({ index: focusVerse, viewPosition: 0.18, animated: true });
-      } catch {
-        listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      const y = verseOffsets.current[focusVerse];
+      if (typeof y === 'number') {
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
       }
     }, 80);
     return () => clearTimeout(handle);
   }, [bookIndex, chapterIndex, focusVerse]);
 
   const openVerse = useCallback(
-    (verseIndex: number) => {
-      const verse = getVerse({ bookIndex, chapterIndex, verseIndex });
-      if (verse) {
-        setActiveVerse(verse);
+    (item: VerseRowData) => {
+      const verse = getVerse({ bookIndex, chapterIndex, verseIndex: item.verseIndex });
+      if (!verse) {
+        return;
       }
+      const language = settings.reader.readerLanguage ?? 'am';
+      const swapped =
+        language === 'en'
+          ? getEnglishForDisplay(bookIndex, chapterIndex, item)
+          : language === 'gez'
+            ? getGeezForDisplay(bookIndex, chapterIndex, item)
+            : null;
+      setActiveVerse({
+        ...verse,
+        verseNumber: item.start,
+        verseEnd: item.end,
+        text: swapped ?? item.text,
+      });
     },
-    [bookIndex, chapterIndex],
+    [bookIndex, chapterIndex, settings.reader.readerLanguage],
   );
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const first = viewableItems[0];
-    if (typeof first?.index !== 'number') {
-      return;
+  const onLayoutY = useCallback((fromIndex: number, toIndex: number, y: number) => {
+    for (let index = fromIndex; index <= toIndex; index += 1) {
+      verseOffsets.current[index] = y;
+    }
+  }, []);
+
+  const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const offsets = verseOffsets.current;
+    let index = 0;
+    for (let i = 0; i < offsets.length; i += 1) {
+      if (typeof offsets[i] === 'number' && offsets[i] <= y + 24) {
+        index = i;
+      }
     }
     const location = locationRef.current;
     setReadingPosition({
       bookIndex: location.bookIndex,
       chapterIndex: location.chapterIndex,
-      verseIndex: first.index,
+      verseIndex: index,
       updatedAt: new Date().toISOString(),
     });
-  }).current;
-
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 40 }).current;
+  }, [setReadingPosition]);
 
   const goAdjacent = useCallback((direction: -1 | 1) => {
     const current = locationRef.current;
@@ -255,45 +372,48 @@ export default function BibleScreen() {
     applyLocation(next.bookIndex, next.chapterIndex, 0);
   }, [applyLocation]);
 
-  const openDaily = useCallback(() => {
-    const daily = getDailyVerse();
-    applyLocation(daily.bookIndex, daily.chapterIndex, daily.verseIndex);
-  }, [applyLocation]);
+  const cycleTheme = useCallback(() => {
+    setTheme(nextTheme(settings.theme));
+  }, [setTheme, settings.theme]);
 
-  const renderItem: ListRenderItem<VerseRowData> = useCallback(
-    ({ item }) => {
-      const ref = { bookIndex, chapterIndex, verseIndex: item.index };
-      const highlight = getHighlight(ref);
-      return (
-        <VerseRow
-          item={item}
-          fontSize={settings.reader.fontSize}
-          lineHeight={settings.reader.lineHeight}
-          verseNumberSize={settings.reader.verseNumberSize}
-          showVerseNumbers={settings.reader.showVerseNumbers}
-          highlightColor={highlight ? HIGHLIGHT_COLORS[highlight.color] : undefined}
-          hasNote={Boolean(getNote(ref))}
-          isBookmarked={isBookmarked(ref)}
-          isFocused={focusVerse === item.index}
-          textColor={colors.text}
-          numberColor={colors.verseNumber}
-          onOpen={openVerse}
-        />
-      );
+  const beginPinch = useCallback(
+    (event: GestureResponderEvent) => {
+      const dist = twoFingerDistance(event);
+      if (dist == null || dist < 12) {
+        return false;
+      }
+      pinchStartDistRef.current = dist;
+      pinchBaseRef.current = settings.reader.fontSize;
+      lastEmittedSizeRef.current = settings.reader.fontSize;
+      return true;
     },
-    [
-      bookIndex,
-      chapterIndex,
-      colors.text,
-      colors.verseNumber,
-      focusVerse,
-      getHighlight,
-      getNote,
-      isBookmarked,
-      openVerse,
-      settings.reader,
-    ],
+    [settings.reader.fontSize],
   );
+
+  const onPinchMove = useCallback((event: GestureResponderEvent) => {
+    if (pinchStartDistRef.current == null) {
+      beginPinch(event);
+    }
+    const start = pinchStartDistRef.current;
+    const dist = twoFingerDistance(event);
+    if (start == null || dist == null) {
+      return;
+    }
+    const next = clampFontSize(pinchBaseRef.current * (dist / start));
+    if (next !== lastEmittedSizeRef.current) {
+      lastEmittedSizeRef.current = next;
+      setLiveFontSize(next);
+    }
+  }, [beginPinch]);
+
+  const endPinch = useCallback(() => {
+    if (pinchStartDistRef.current == null) {
+      return;
+    }
+    pinchStartDistRef.current = null;
+    updateReader({ fontSize: lastEmittedSizeRef.current });
+    setLiveFontSize(null);
+  }, [updateReader]);
 
   if (!book || !chapter) {
     return (
@@ -305,7 +425,7 @@ export default function BibleScreen() {
     );
   }
 
-  const widthPercent = Math.min(100, Math.max(70, settings.reader.readingWidth));
+  const fontStyle = settings.reader.fontStyle ?? 'sans';
 
   return (
     <Screen backgroundColor={colors.readerBackground}>
@@ -335,8 +455,81 @@ export default function BibleScreen() {
           >
             <Text style={{ color: colors.accent, fontWeight: '700', fontSize: 16 }}>{chapter.chapter}</Text>
           </Pressable>
-          <Pressable onPress={openDaily} accessibilityLabel="የዛሬ ጥቅስ" style={styles.iconBtn}>
-            <Ionicons name="sunny-outline" size={22} color={colors.accent} />
+          <Pressable
+            onPress={cycleTheme}
+            accessibilityLabel="የብርሃን ሁነታ"
+            accessibilityRole="button"
+            style={styles.iconBtn}
+          >
+            <Ionicons name={themeIcon(settings.theme)} size={22} color={colors.accent} />
+          </Pressable>
+          <View style={[styles.langSwitch, { backgroundColor: colors.surfaceMuted }]}>
+            <Pressable
+              onPress={() => updateReader({ readerLanguage: 'am' })}
+              accessibilityLabel="አማርኛ"
+              style={[
+                styles.langBtn,
+                (settings.reader.readerLanguage ?? 'am') === 'am'
+                  ? { backgroundColor: colors.surface }
+                  : null,
+              ]}
+            >
+              <Text
+                style={{
+                  color: (settings.reader.readerLanguage ?? 'am') === 'am' ? colors.text : colors.textMuted,
+                  fontWeight: '800',
+                  fontSize: 13,
+                }}
+              >
+                አማ
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => updateReader({ readerLanguage: 'en' })}
+              accessibilityLabel="King James Version"
+              style={[
+                styles.langBtn,
+                readerLanguage === 'en' ? { backgroundColor: colors.surface } : null,
+              ]}
+            >
+              <Text
+                style={{
+                  color: readerLanguage === 'en' ? colors.text : colors.textMuted,
+                  fontWeight: '800',
+                  fontSize: 12,
+                }}
+              >
+                KJV
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => updateReader({ readerLanguage: 'gez' })}
+              accessibilityLabel="ግዕዝ"
+              style={[
+                styles.langBtn,
+                readerLanguage === 'gez' ? { backgroundColor: colors.surface } : null,
+              ]}
+            >
+              <Text
+                style={{
+                  color: readerLanguage === 'gez' ? colors.text : colors.textMuted,
+                  fontWeight: '800',
+                  fontSize: 12,
+                }}
+              >
+                ግዕ
+              </Text>
+            </Pressable>
+          </View>
+          <Pressable
+            onPress={() =>
+              promptChapterShare(bookIndex, chapterIndex, readerLanguage)
+            }
+            accessibilityLabel="ምዕራፍ አጋራ"
+            accessibilityRole="button"
+            style={styles.iconBtn}
+          >
+            <Ionicons name="share-outline" size={22} color={colors.accent} />
           </Pressable>
           <Pressable onPress={() => setShowSettings(true)} accessibilityLabel="የንባብ ቅንብሮች" style={styles.iconBtn}>
             <Ionicons name="text" size={22} color={colors.accent} />
@@ -361,51 +554,97 @@ export default function BibleScreen() {
           }}
         >
           <View style={styles.fill}>
-            <FlatList
-              ref={listRef}
-              data={verses}
-              keyExtractor={(item) => String(item.index)}
-              renderItem={renderItem}
-              initialNumToRender={12}
-              maxToRenderPerBatch={10}
-              windowSize={7}
-              removeClippedSubviews
-              onViewableItemsChanged={onViewableItemsChanged}
-              viewabilityConfig={viewabilityConfig}
-              onScrollToIndexFailed={(info) => {
-                listRef.current?.scrollToOffset({
-                  offset: Math.max(0, info.averageItemLength * info.index),
-                  animated: false,
-                });
+            <ScrollView
+              ref={scrollRef}
+              onScroll={onScroll}
+              scrollEventThrottle={200}
+              onTouchStart={(event) => {
+                if (event.nativeEvent.touches.length >= 2) {
+                  beginPinch(event);
+                }
               }}
+              onTouchMove={(event) => {
+                if (event.nativeEvent.touches.length >= 2) {
+                  onPinchMove(event);
+                }
+              }}
+              onTouchEnd={endPinch}
+              onTouchCancel={endPinch}
               contentContainerStyle={{
                 paddingHorizontal: settings.reader.horizontalMargin,
                 paddingTop: 8,
                 paddingBottom: 28,
-                width: `${widthPercent}%`,
-                alignSelf: 'center',
               }}
-              extraData={`${store.highlights.length}-${store.notes.length}-${store.bookmarks.length}-${settings.reader.fontSize}-${focusVerse}`}
-              ListHeaderComponent={
-                <Text style={[styles.chapterHeading, { color: colors.textMuted }]}>
-                  ምዕራፍ {chapter.chapter}
+            >
+              <Text style={[styles.chapterHeading, { color: colors.textMuted }]}>
+                ምዕራፍ {chapter.chapter}
+                {chapter.title ? ` · ${chapter.title}` : ''}
+                {readerLanguage === 'en' ? ' · KJV' : readerLanguage === 'gez' ? ' · ግዕዝ' : ''}
+              </Text>
+              {readerLanguage === 'en' && englishEpoch > 0 && !hasEnglishBook(bookIndex) ? (
+                <Text style={{ color: colors.textMuted, paddingBottom: 12, lineHeight: 22 }}>
+                  This book is not in the King James Bible.
                 </Text>
-              }
-              ListEmptyComponent={
+              ) : null}
+              {readerLanguage === 'gez' && englishEpoch > 0 && !hasGeezBook(bookIndex) ? (
+                <Text style={{ color: colors.textMuted, paddingBottom: 12, lineHeight: 22 }}>
+                  ግዕዝ ለዚህ መጽሐፍ አልተገኘም።
+                </Text>
+              ) : null}
+              {verses.length === 0 ? (
                 <Text style={{ color: colors.textMuted, padding: 24 }}>በዚህ ምዕራፍ ጥቅስ የለም።</Text>
-              }
-            />
+              ) : (
+                verses.map((item) => {
+                  let highlight;
+                  let hasNote = false;
+                  let bookmarked = false;
+                  for (let verseIndex = item.fromIndex; verseIndex <= item.toIndex; verseIndex += 1) {
+                    const ref = { bookIndex, chapterIndex, verseIndex };
+                    highlight = highlight ?? getHighlight(ref);
+                    hasNote = hasNote || Boolean(getNote(ref));
+                    bookmarked = bookmarked || isBookmarked(ref);
+                  }
+                  const focused =
+                    focusVerse != null &&
+                    focusVerse >= item.fromIndex &&
+                    focusVerse <= item.toIndex;
+                  const swapped =
+                    readerLanguage === 'en' && englishEpoch > 0
+                      ? getEnglishForDisplay(bookIndex, chapterIndex, item)
+                      : readerLanguage === 'gez' && englishEpoch > 0
+                        ? getGeezForDisplay(bookIndex, chapterIndex, item)
+                        : null;
+                  const displayText =
+                    readerLanguage === 'am'
+                      ? item.text
+                      : swapped ?? (englishEpoch > 0 ? '—' : '…');
+                  return (
+                    <VerseRow
+                      key={`${item.fromIndex}-${item.toIndex}`}
+                      item={item}
+                      fontSize={fontSize}
+                      lineHeight={settings.reader.lineHeight}
+                      verseNumberSize={settings.reader.verseNumberSize}
+                      showVerseNumbers={settings.reader.showVerseNumbers}
+                      fontStyle={fontStyle}
+                      highlightColor={highlight ? HIGHLIGHT_COLORS[highlight.color] : undefined}
+                      hasNote={hasNote}
+                      isBookmarked={bookmarked}
+                      isFocused={focused}
+                      displayText={displayText}
+                      englishTypography={readerLanguage === 'en' && Boolean(swapped)}
+                      textColor={colors.text}
+                      numberColor={colors.verseNumber}
+                      onOpen={openVerse}
+                      onLayoutY={onLayoutY}
+                    />
+                  );
+                })
+              )}
+            </ScrollView>
           </View>
         </FlingGestureHandler>
       </FlingGestureHandler>
-
-      <AudioPlayerBar
-        bookIndex={bookIndex}
-        chapterIndex={chapterIndex}
-        bookTitle={book.title}
-        chapterLabel={`ምዕራፍ ${chapter.chapter}`}
-        onOpenChapter={(nextBook, nextChapter) => applyLocation(nextBook, nextChapter, 0)}
-      />
 
       <BookSelectorModal
         visible={showBooks}
@@ -462,7 +701,20 @@ const styles = StyleSheet.create({
   },
   headerMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 },
   bookTitle: { fontSize: 17, fontWeight: '600', flexShrink: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  langSwitch: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    padding: 2,
+  },
+  langBtn: {
+    minHeight: 32,
+    minWidth: 36,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   iconBtn: {
     minHeight: 44,
     minWidth: 36,
@@ -477,9 +729,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   verseRow: {
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
     paddingHorizontal: 2,
+    gap: 8,
   },
+  verseBody: { flex: 1 },
   focusedVerse: {
     borderLeftWidth: 2,
     borderLeftColor: '#1B6B3A66',

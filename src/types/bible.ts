@@ -2,11 +2,14 @@ export interface BibleChapter {
   chapter: string;
   title: string;
   verses: string[];
+  verseNumbers?: number[];
 }
 
 export interface BibleBook {
   title: string;
   abbv: string;
+  englishTitle?: string;
+  testament?: Testament;
   chapters: BibleChapter[];
 }
 
@@ -27,6 +30,7 @@ export interface VerseLocation extends VerseRef {
   bookTitle: string;
   chapterNumber: string;
   verseNumber: number;
+  verseEnd?: number;
   text: string;
 }
 
@@ -53,6 +57,7 @@ export interface Translation {
 export type BookGroupId =
   | 'law'
   | 'history'
+  | 'narrow'
   | 'wisdom'
   | 'prophets'
   | 'gospels'

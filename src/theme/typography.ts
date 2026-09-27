@@ -1,18 +1,47 @@
-import { Platform, type TextStyle } from 'react-native';
+import { useFonts } from 'expo-font';
+import { NotoSansEthiopic_400Regular } from '@expo-google-fonts/noto-sans-ethiopic';
+import { NotoSerifEthiopic_400Regular } from '@expo-google-fonts/noto-serif-ethiopic';
+import { useEffect } from 'react';
+import type { TextStyle } from 'react-native';
+import type { ReaderFontStyle } from '../types/user';
 
-/**
- * System fonts are used because this project does not ship Ethiopic .ttf files.
- * Android/iOS fall back to Noto/system Ethiopic coverage.
- */
-export const ethiopicFont: TextStyle['fontFamily'] = Platform.select({
-  android: 'sans-serif',
-  ios: 'System',
-  default: undefined,
-});
+const FAMILY: Record<ReaderFontStyle, string> = {
+  sans: 'NotoSansEthiopic_400Regular',
+  serif: 'NotoSerifEthiopic_400Regular',
+  medium: 'NotoSansEthiopic_400Regular',
+  condensed: 'NotoSansEthiopic_400Regular',
+};
 
-export function readerTextStyle(fontSize: number, lineHeight: number, color: string): TextStyle {
+let fontsReady = false;
+
+export function FontLoader() {
+  const [loaded, error] = useFonts({
+    NotoSansEthiopic_400Regular,
+    NotoSerifEthiopic_400Regular,
+  });
+  useEffect(() => {
+    if (loaded && !error) {
+      fontsReady = true;
+    }
+  }, [loaded, error]);
+  return null;
+}
+
+export function fontFamilyForStyle(style: ReaderFontStyle): string | undefined {
+  if (!fontsReady) {
+    return undefined;
+  }
+  return FAMILY[style] ?? FAMILY.sans;
+}
+
+export function readerTextStyle(
+  fontSize: number,
+  lineHeight: number,
+  color: string,
+  fontStyle: ReaderFontStyle = 'sans',
+): TextStyle {
   return {
-    fontFamily: ethiopicFont,
+    fontFamily: fontFamilyForStyle(fontStyle),
     fontSize,
     lineHeight: Math.round(fontSize * lineHeight),
     color,

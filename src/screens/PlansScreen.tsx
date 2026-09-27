@@ -6,11 +6,11 @@ import { PageTitle } from '../components/ui';
 import { listPlans, progressPercent } from '../services/readingPlanService';
 import { useStudy } from '../context/StudyContext';
 import { useAppTheme } from '../theme/ThemeContext';
-import type { SettingsStackParamList } from '../types/navigation';
+import type { PlansStackParamList } from '../types/navigation';
 
 export default function PlansScreen() {
   const colors = useAppTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<PlansStackParamList>>();
   const { store } = useStudy();
 
   return (

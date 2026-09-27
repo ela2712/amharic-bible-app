@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { StudyProvider, useStudy } from './src/context/StudyContext';
 import { ThemeProvider, useAppTheme } from './src/theme/ThemeContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { loadBible } from './src/data/bible';
+import { FontLoader } from './src/theme/typography';
 
 function BootMessage({
   title,
@@ -36,6 +37,25 @@ function BootMessage({
       ) : null}
     </View>
   );
+}
+
+class FontErrorGate extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.warn('Font load failed', error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.failed) {
+      return null;
+    }
+    return this.props.children;
+  }
 }
 
 function ThemedApp() {
@@ -69,10 +89,6 @@ function BibleBootstrap({ children }: { children: ReactNode }) {
     startLoad();
   }, [startLoad]);
 
-  if (ready) {
-    return <>{children}</>;
-  }
-
   if (error) {
     return (
       <BootMessage
@@ -83,7 +99,18 @@ function BibleBootstrap({ children }: { children: ReactNode }) {
     );
   }
 
-  return <BootMessage title="መጽሐፍ ቅዱስ" message="ጽሑፉ በመጫን ላይ ነው…" />;
+  if (!ready) {
+    return <BootMessage title="መጽሐፍ ቅዱስ" message="ጽሑፉ በመጫን ላይ ነው…" />;
+  }
+
+  return (
+    <>
+      <FontErrorGate>
+        <FontLoader />
+      </FontErrorGate>
+      {children}
+    </>
+  );
 }
 
 export default function App() {

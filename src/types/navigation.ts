@@ -23,15 +23,19 @@ export type SearchStackParamList = {
   SearchMain: undefined;
 };
 
+export type PlansStackParamList = {
+  PlansMain: undefined;
+  PlanDetail: { planId: string };
+};
+
 export type SettingsStackParamList = {
   SettingsMain: undefined;
-  Plans: undefined;
-  PlanDetail: { planId: string };
 };
 
 export type RootTabParamList = {
   BibleTab: NavigatorScreenParams<BibleStackParamList>;
   SearchTab: NavigatorScreenParams<SearchStackParamList>;
+  PlansTab: NavigatorScreenParams<PlansStackParamList>;
   SavedTab: NavigatorScreenParams<SavedStackParamList>;
   SettingsTab: NavigatorScreenParams<SettingsStackParamList>;
 };

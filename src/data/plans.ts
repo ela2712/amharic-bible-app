@@ -1,17 +1,22 @@
 import type { ReadingPlan, ReadingPlanDay, ReadingAssignment } from '../types/study';
 import { bible, getTestament } from './bible';
 
-function chaptersInRange(startBook: number, endBook: number): ReadingAssignment[] {
+function bookIndexByEnglish(name: string): number {
+  return bible.books.findIndex((book) => book.englishTitle === name);
+}
+
+function chaptersForBooks(englishNames: string[]): ReadingAssignment[] {
   const assignments: ReadingAssignment[] = [];
-  for (let bookIndex = startBook; bookIndex <= endBook; bookIndex += 1) {
+  englishNames.forEach((name) => {
+    const bookIndex = bookIndexByEnglish(name);
     const book = bible.books[bookIndex];
-    if (!book) {
-      continue;
+    if (bookIndex < 0 || !book) {
+      return;
     }
     book.chapters.forEach((_chapter, chapterIndex) => {
       assignments.push({ bookIndex, chapterIndex });
     });
-  }
+  });
   return assignments;
 }
 
@@ -55,19 +60,19 @@ function buildReadingPlans(): ReadingPlan[] {
       id: 'gospels-30',
       title: 'ወንጌላት በ30 ቀን',
       description: 'የማቴዎስ፣ ማርቆስ፣ ሉቃስ እና ዮሐንስ ወንጌሎች በሠላሳ ቀን።',
-      days: chunkAssignments(chaptersInRange(39, 42), 30),
+      days: chunkAssignments(chaptersForBooks(['Matthew', 'Mark', 'Luke', 'John']), 30),
     },
     {
       id: 'proverbs-31',
       title: 'ምሳሌ በ31 ቀን',
       description: 'በየቀኑ አንድ የምሳሌ ምዕራፍ።',
-      days: oneChapterPerDay(chaptersInRange(19, 19)),
+      days: oneChapterPerDay(chaptersForBooks(['Proverbs'])),
     },
     {
       id: 'psalms-150',
       title: 'መዝሙረ ዳዊት',
       description: 'በየቀኑ አንድ መዝሙር።',
-      days: oneChapterPerDay(chaptersInRange(18, 18)),
+      days: oneChapterPerDay(chaptersForBooks(['Psalms'])),
     },
     {
       id: 'nt-90',
